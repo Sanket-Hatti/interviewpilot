@@ -7,17 +7,17 @@ from flask_limiter.util import get_remote_address
 
 from config import config
 from database.db import init_db
-from routes.auth import auth_bp
+from routes.auth   import auth_bp
+from routes.resume import resume_bp
+from routes.roles  import roles_bp
 
 
 def create_app(env: str = "development") -> Flask:
     app = Flask(__name__)
     app.config.from_object(config[env])
 
-    # Ensure upload folder exists
     os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
-    # Extensions
     CORS(app, resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}})
     JWTManager(app)
     Limiter(
@@ -27,26 +27,23 @@ def create_app(env: str = "development") -> Flask:
         storage_uri=app.config["RATELIMIT_STORAGE_URL"]
     )
 
-    # Database
     init_db(app)
 
-    # Blueprints
     app.register_blueprint(auth_bp)
-    # Phase 2+ blueprints registered here
+    app.register_blueprint(resume_bp)
+    app.register_blueprint(roles_bp)
 
-    # Health check
     @app.route("/api/health")
     def health():
         return jsonify({"status": "ok", "version": "1.0.0"}), 200
 
-    # Global error handlers
     @app.errorhandler(404)
     def not_found(e):
         return jsonify({"success": False, "errors": ["Resource not found."]}), 404
 
-    @app.errorhandler(405)
-    def method_not_allowed(e):
-        return jsonify({"success": False, "errors": ["Method not allowed."]}), 405
+    @app.errorhandler(413)
+    def too_large(e):
+        return jsonify({"success": False, "errors": ["File too large. Max 10MB."]}), 413
 
     @app.errorhandler(500)
     def internal_error(e):
