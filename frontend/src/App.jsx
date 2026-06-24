@@ -2,30 +2,27 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
 
-import Login         from "./pages/Login";
-import Register      from "./pages/Register";
-import Dashboard     from "./pages/Dashboard";
+import Login          from "./pages/Login";
+import Register       from "./pages/Register";
+import Dashboard      from "./pages/Dashboard";
 import ResumeAnalyzer from "./pages/ResumeAnalyzer";
-import RoleMatch     from "./pages/RoleMatch";
+import RoleMatch      from "./pages/RoleMatch";
+import Roadmap        from "./pages/Roadmap";
+import MockInterview  from "./pages/MockInterview";
+import CompanyPrep    from "./pages/CompanyPrep";
 
-// Stub pages for Phase 3+
 const Stub = ({ title }) => (
   <div className="min-h-screen bg-gray-950 flex items-center justify-center">
     <div className="text-center">
       <div className="text-5xl mb-4">🚧</div>
       <h2 className="text-xl font-bold text-white mb-2">{title}</h2>
-      <p className="text-gray-400">Coming in the next phase!</p>
+      <p className="text-gray-400">Coming soon!</p>
     </div>
   </div>
 );
 
 function Layout({ children }) {
-  return (
-    <>
-      <Navbar />
-      {children}
-    </>
-  );
+  return <><Navbar />{children}</>;
 }
 
 function ProtectedRoute({ children }) {
@@ -55,10 +52,10 @@ export default function App() {
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/resume"    element={<ProtectedRoute><ResumeAnalyzer /></ProtectedRoute>} />
         <Route path="/roles"     element={<ProtectedRoute><RoleMatch /></ProtectedRoute>} />
-        <Route path="/roadmap"   element={<ProtectedRoute><Stub title="AI Roadmap Generator" /></ProtectedRoute>} />
-        <Route path="/interview" element={<ProtectedRoute><Stub title="Mock Interview" /></ProtectedRoute>} />
+        <Route path="/roadmap"   element={<ProtectedRoute><Roadmap /></ProtectedRoute>} />
+        <Route path="/interview" element={<ProtectedRoute><MockInterview /></ProtectedRoute>} />
+        <Route path="/company"   element={<ProtectedRoute><CompanyPrep /></ProtectedRoute>} />
         <Route path="/dsa"       element={<ProtectedRoute><Stub title="DSA Tracker" /></ProtectedRoute>} />
-        <Route path="/company"   element={<ProtectedRoute><Stub title="Company Prep" /></ProtectedRoute>} />
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

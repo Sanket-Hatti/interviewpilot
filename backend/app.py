@@ -7,9 +7,12 @@ from flask_limiter.util import get_remote_address
 
 from config import config
 from database.db import init_db
-from routes.auth   import auth_bp
-from routes.resume import resume_bp
-from routes.roles  import roles_bp
+from routes.auth      import auth_bp
+from routes.resume    import resume_bp
+from routes.roles     import roles_bp
+from routes.roadmap   import roadmap_bp
+from routes.interview import interview_bp
+from routes.company   import company_bp
 
 
 def create_app(env: str = "development") -> Flask:
@@ -32,10 +35,13 @@ def create_app(env: str = "development") -> Flask:
     app.register_blueprint(auth_bp)
     app.register_blueprint(resume_bp)
     app.register_blueprint(roles_bp)
+    app.register_blueprint(roadmap_bp)
+    app.register_blueprint(interview_bp)
+    app.register_blueprint(company_bp)
 
     @app.route("/api/health")
     def health():
-        return jsonify({"status": "ok", "version": "1.0.0"}), 200
+        return jsonify({"status": "ok", "version": "2.0.0"}), 200
 
     @app.errorhandler(404)
     def not_found(e):
