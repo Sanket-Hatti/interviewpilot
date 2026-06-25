@@ -58,7 +58,7 @@ export default function Register() {
                 name="full_name"
                 value={form.full_name}
                 onChange={handleChange}
-                placeholder="Sanket Patil"
+                placeholder="John Doe"
                 className="input-field"
                 required
               />
