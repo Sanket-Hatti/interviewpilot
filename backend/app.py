@@ -12,8 +12,6 @@ from routes.resume    import resume_bp
 from routes.roles     import roles_bp
 from routes.roadmap   import roadmap_bp
 from routes.interview import interview_bp
-from routes.company   import company_bp
-from routes.dsa       import dsa_bp
 
 
 def create_app(env: str = "development") -> Flask:
@@ -29,7 +27,7 @@ def create_app(env: str = "development") -> Flask:
 
     init_db(app)
 
-    for bp in [auth_bp, resume_bp, roles_bp, roadmap_bp, interview_bp, company_bp, dsa_bp]:
+    for bp in [auth_bp, resume_bp, roles_bp, roadmap_bp, interview_bp]:
         app.register_blueprint(bp)
 
     @app.route("/api/health")
