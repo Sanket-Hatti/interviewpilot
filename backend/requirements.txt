@@ -13,7 +13,7 @@ sqlalchemy==2.0.36
 bcrypt==4.2.1
 
 # AI
-google-generativeai==0.8.3
+groq==1.5.0
 
 # Resume parsing
 pymupdf==1.25.1
