@@ -9,17 +9,6 @@ import ResumeAnalyzer from "./pages/ResumeAnalyzer";
 import RoleMatch      from "./pages/RoleMatch";
 import Roadmap        from "./pages/Roadmap";
 import MockInterview  from "./pages/MockInterview";
-import CompanyPrep    from "./pages/CompanyPrep";
-
-const Stub = ({ title }) => (
-  <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-    <div className="text-center">
-      <div className="text-5xl mb-4">🚧</div>
-      <h2 className="text-xl font-bold text-white mb-2">{title}</h2>
-      <p className="text-gray-400">Coming soon!</p>
-    </div>
-  </div>
-);
 
 function Layout({ children }) {
   return <><Navbar />{children}</>;
@@ -45,19 +34,15 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/"         element={<Navigate to="/dashboard" replace />} />
-        <Route path="/login"    element={<PublicRoute><Login /></PublicRoute>} />
-        <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-
+        <Route path="/"          element={<Navigate to="/dashboard" replace />} />
+        <Route path="/login"     element={<PublicRoute><Login /></PublicRoute>} />
+        <Route path="/register"  element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/resume"    element={<ProtectedRoute><ResumeAnalyzer /></ProtectedRoute>} />
         <Route path="/roles"     element={<ProtectedRoute><RoleMatch /></ProtectedRoute>} />
         <Route path="/roadmap"   element={<ProtectedRoute><Roadmap /></ProtectedRoute>} />
         <Route path="/interview" element={<ProtectedRoute><MockInterview /></ProtectedRoute>} />
-        <Route path="/company"   element={<ProtectedRoute><CompanyPrep /></ProtectedRoute>} />
-        <Route path="/dsa"       element={<ProtectedRoute><Stub title="DSA Tracker" /></ProtectedRoute>} />
-
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*"          element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </AuthProvider>
   );

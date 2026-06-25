@@ -1,45 +1,60 @@
 import os
+import json
 import time
-import google.generativeai as genai
+from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY", ""))
-model = genai.GenerativeModel("gemini-2.0-flash-lite")
+client = Groq(api_key=os.getenv("GROQ_API_KEY", ""))
+MODEL  = "llama-3.3-70b-versatile"   # Fast, free, capable
 
 
-def _call_gemini(prompt: str, retries: int = 3) -> str:
-    """Call Gemini with retry logic."""
+def _call_groq(prompt: str, retries: int = 3) -> str:
+    """Call Groq with retry logic."""
     for attempt in range(retries):
         try:
-            response = model.generate_content(prompt)
-            return response.text.strip()
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,
+                max_tokens=2048,
+            )
+            return response.choices[0].message.content.strip()
         except Exception as e:
             if attempt < retries - 1:
                 time.sleep(2 ** attempt)
             else:
-                raise RuntimeError(f"Gemini API error: {str(e)}")
+                raise RuntimeError(f"Groq API error: {str(e)}")
+
+
+def _parse_json(raw: str) -> dict | list:
+    """Strip markdown fences and parse JSON safely."""
+    raw = raw.replace("```json", "").replace("```", "").strip()
+    # Find first { or [
+    for i, ch in enumerate(raw):
+        if ch in "{[":
+            raw = raw[i:]
+            break
+    return json.loads(raw)
 
 
 def improve_resume_bullet(bullet: str) -> str:
-    prompt = f"""You are an expert resume writer. Improve this resume bullet point to be more impactful, 
-specific, and professional. Use strong action verbs and quantify achievements where possible.
-Keep it to 1-2 sentences maximum.
+    prompt = f"""You are an expert resume writer. Improve this resume bullet point to be more impactful, specific, and professional. Use strong action verbs and quantify achievements where possible. Keep it to 1-2 sentences maximum.
 
-Original bullet: {bullet}
+Original: {bullet}
 
 Return ONLY the improved bullet point, nothing else."""
-    return _call_gemini(prompt)
+    return _call_groq(prompt)
 
 
 def generate_roadmap(target_role: str, missing_skills: list, weekly_hours: int, duration_weeks: int) -> dict:
-    skills_str = ", ".join(missing_skills) if missing_skills else "general software development skills"
-    prompt = f"""Create a detailed {duration_weeks}-week learning roadmap for someone targeting a {target_role} position.
-They need to learn: {skills_str}
-They can study {weekly_hours} hours per week.
+    skills_str = ", ".join(missing_skills) if missing_skills else "core software development skills"
+    prompt = f"""Create a {duration_weeks}-week learning roadmap for a {target_role} position.
+Skills to learn: {skills_str}
+Study time: {weekly_hours} hours/week
 
-Return a JSON object with this exact structure (no markdown, pure JSON):
+Return ONLY a JSON object, no explanation, no markdown:
 {{
   "overview": "brief overview string",
   "weeks": [
@@ -52,75 +67,64 @@ Return a JSON object with this exact structure (no markdown, pure JSON):
       "mini_project": "mini project description"
     }}
   ]
-}}"""
-    import json
-    raw = _call_gemini(prompt)
-    # Strip markdown code blocks if present
-    raw = raw.replace("```json", "").replace("```", "").strip()
+}}
+
+Generate all {duration_weeks} weeks."""
+
+    raw = _call_groq(prompt)
     try:
-        return json.loads(raw)
+        return _parse_json(raw)
     except json.JSONDecodeError:
-        return {"overview": "Roadmap generated", "raw": raw, "weeks": []}
+        return {"overview": "Roadmap generated successfully.", "weeks": [], "raw": raw}
 
 
 def generate_interview_questions(role: str, difficulty: str) -> dict:
-    prompt = f"""Generate a mock interview question set for a {role} position at {difficulty} difficulty.
+    prompt = f"""Generate interview questions for a {role} position at {difficulty} difficulty.
 
-Return pure JSON (no markdown):
+Return ONLY this JSON, no explanation:
 {{
-  "technical": ["question1", "question2", "question3", "question4", "question5"],
-  "behavioral": ["question1", "question2", "question3"],
-  "hr": ["question1", "question2", "question3"]
+  "technical": ["q1", "q2", "q3", "q4", "q5"],
+  "behavioral": ["q1", "q2", "q3"],
+  "hr": ["q1", "q2", "q3"]
 }}"""
-    import json
-    raw = _call_gemini(prompt)
-    raw = raw.replace("```json", "").replace("```", "").strip()
+
+    raw = _call_groq(prompt)
     try:
-        return json.loads(raw)
+        return _parse_json(raw)
     except json.JSONDecodeError:
         return {"technical": [], "behavioral": [], "hr": [], "raw": raw}
 
 
 def evaluate_interview_answers(role: str, questions: list, answers: list) -> dict:
-    qa_pairs = "\n".join([f"Q: {q}\nA: {a}" for q, a in zip(questions, answers)])
+    qa_pairs = "\n".join([f"Q{i+1}: {q}\nA{i+1}: {a}" for i, (q, a) in enumerate(zip(questions, answers))])
     prompt = f"""Evaluate these interview answers for a {role} position.
 
 {qa_pairs}
 
-Return pure JSON (no markdown):
+Return ONLY this JSON, no explanation:
 {{
   "overall_score": 75,
   "technical_accuracy": 70,
   "communication": 80,
   "completeness": 75,
-  "detailed_feedback": ["feedback point 1", "feedback point 2", "feedback point 3"],
-  "suggested_improvements": ["improvement 1", "improvement 2"]
+  "detailed_feedback": ["point1", "point2", "point3"],
+  "suggested_improvements": ["improvement1", "improvement2"]
 }}"""
-    import json
-    raw = _call_gemini(prompt)
-    raw = raw.replace("```json", "").replace("```", "").strip()
+
+    raw = _call_groq(prompt)
     try:
-        return json.loads(raw)
+        return _parse_json(raw)
     except json.JSONDecodeError:
-        return {"overall_score": 0, "raw": raw}
+        return {"overall_score": 0, "technical_accuracy": 0, "communication": 0,
+                "completeness": 0, "detailed_feedback": [], "suggested_improvements": []}
 
 
 def chat_with_ai(message: str, history: list) -> str:
-    history_str = ""
-    for msg in history[-6:]:  # Last 6 messages for context
-        history_str += f"{msg['role'].upper()}: {msg['content']}\n"
+    history_str = "\n".join([f"{m['role'].upper()}: {m['content']}" for m in history[-6:]])
+    prompt = f"""You are InterviewPilot AI, a career coach helping students with resume analysis, interview prep, learning roadmaps, and skill gaps. Be helpful, concise, and encouraging.
 
-    prompt = f"""You are InterviewPilot AI, a career coach helping students with:
-- Resume analysis and improvement
-- Interview preparation
-- Learning roadmaps
-- Skill gap analysis
-- Job search strategies
-
-Conversation history:
 {history_str}
+USER: {message}
 
-User: {message}
-
-Give a helpful, concise, and encouraging response (2-4 sentences max unless a detailed list is needed)."""
-    return _call_gemini(prompt)
+Give a helpful response in 2-4 sentences."""
+    return _call_groq(prompt)
