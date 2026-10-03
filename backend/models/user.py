@@ -1,22 +1,24 @@
 from datetime import datetime, timezone
-from database.db import db
+from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy.orm import relationship
+from database.db import Base
 import bcrypt
 
-class User(db.Model):
+class User(Base):
     __tablename__ = "users"
 
-    id            = db.Column(db.Integer, primary_key=True)
-    full_name     = db.Column(db.String(120), nullable=False)
-    email         = db.Column(db.String(120), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(255), nullable=False)
-    created_at    = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    id            = Column(Integer, primary_key=True, index=True)
+    full_name     = Column(String(120), nullable=False)
+    email         = Column(String(120), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    created_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
-    resumes       = db.relationship("Resume",      backref="user", lazy=True, cascade="all, delete-orphan")
-    roadmaps      = db.relationship("Roadmap",     backref="user", lazy=True, cascade="all, delete-orphan")
-    interviews    = db.relationship("Interview",   backref="user", lazy=True, cascade="all, delete-orphan")
-    dsa_progress  = db.relationship("DSAProgress", backref="user", lazy=True, cascade="all, delete-orphan")
-    chat_history  = db.relationship("ChatHistory", backref="user", lazy=True, cascade="all, delete-orphan")
+    resumes       = relationship("Resume",      back_populates="user", cascade="all, delete-orphan")
+    roadmaps      = relationship("Roadmap",     back_populates="user", cascade="all, delete-orphan")
+    interviews    = relationship("Interview",   back_populates="user", cascade="all, delete-orphan")
+    dsa_progress  = relationship("DSAProgress", back_populates="user", cascade="all, delete-orphan")
+    chat_history  = relationship("ChatHistory", back_populates="user", cascade="all, delete-orphan")
 
     def set_password(self, password: str) -> None:
         salt = bcrypt.gensalt()
@@ -33,7 +35,7 @@ class User(db.Model):
             "id":         self.id,
             "full_name":  self.full_name,
             "email":      self.email,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat() if self.created_at else None
         }
 
     def __repr__(self):

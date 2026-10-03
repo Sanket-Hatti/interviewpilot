@@ -1,19 +1,23 @@
 from datetime import datetime, timezone
-from database.db import db
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from database.db import Base
 
-class ChatHistory(db.Model):
+class ChatHistory(Base):
     __tablename__ = "chat_history"
 
-    id         = db.Column(db.Integer, primary_key=True)
-    user_id    = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    role       = db.Column(db.String(10), nullable=False)   # "user" or "assistant"
-    content    = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role       = Column(String(10), nullable=False)   # "user" or "assistant"
+    content    = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user       = relationship("User", back_populates="chat_history")
 
     def to_dict(self):
         return {
             "id":         self.id,
             "role":       self.role,
             "content":    self.content,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat() if self.created_at else None
         }

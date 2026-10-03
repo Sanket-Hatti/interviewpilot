@@ -2,240 +2,420 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import api from "../utils/api";
+import {
+  Compass,
+  BookOpen,
+  CheckSquare,
+  Rocket,
+  Clock,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  RotateCcw,
+  ExternalLink,
+  CheckCircle2,
+  Calendar
+} from "lucide-react";
 
 const ROLES = [
-  "Software Engineer","Backend Developer","Frontend Developer","Full Stack Developer",
-  "Data Analyst","Data Scientist","Machine Learning Engineer","DevOps Engineer","Cloud Engineer",
+  "Software Engineer", "Backend Developer", "Frontend Developer", "Full Stack Developer",
+  "Data Analyst", "Data Scientist", "Machine Learning Engineer", "DevOps Engineer", "Cloud Engineer",
 ];
 
 const SKILLS_BY_ROLE = {
-  "Backend Developer":        ["Flask","REST API","PostgreSQL","Docker","AWS"],
-  "Frontend Developer":       ["React","TypeScript","Tailwind","Next.js"],
-  "Full Stack Developer":     ["React","Node.js","PostgreSQL","Docker"],
-  "Data Scientist":           ["Machine Learning","TensorFlow","Pandas","Statistics"],
-  "Machine Learning Engineer":["PyTorch","MLOps","Docker","Scikit-learn"],
-  "DevOps Engineer":          ["Kubernetes","Terraform","CI/CD","Linux"],
-  "Cloud Engineer":           ["AWS","Azure","Terraform","Kubernetes"],
-  "Data Analyst":             ["SQL","Tableau","Pandas","Excel"],
-  "Software Engineer":        ["Data Structures","Algorithms","System Design","SQL"],
+  "Backend Developer": ["FastAPI", "REST API", "PostgreSQL", "Docker", "AWS", "Redis"],
+  "Frontend Developer": ["React", "TypeScript", "Tailwind CSS", "Next.js", "State Management"],
+  "Full Stack Developer": ["React", "Node.js", "FastAPI", "PostgreSQL", "Docker", "REST API"],
+  "Data Scientist": ["Machine Learning", "TensorFlow", "Pandas", "Statistics", "PyTorch"],
+  "Machine Learning Engineer": ["PyTorch", "MLOps", "Docker", "Scikit-learn", "HuggingFace"],
+  "DevOps Engineer": ["Kubernetes", "Terraform", "CI/CD", "Linux", "Docker"],
+  "Cloud Engineer": ["AWS", "Azure", "Terraform", "Kubernetes", "Networking"],
+  "Data Analyst": ["SQL", "Tableau", "Pandas", "Excel", "PowerBI"],
+  "Software Engineer": ["Data Structures", "Algorithms", "System Design", "SQL", "Git"],
 };
 
 export default function Roadmap() {
-  const [role, setRole]         = useState("");
-  const [skills, setSkills]     = useState([]);
-  const [custom, setCustom]     = useState("");
-  const [hours, setHours]       = useState(10);
-  const [weeks, setWeeks]       = useState(8);
-  const [loading, setLoading]   = useState(false);
-  const [roadmap, setRoadmap]   = useState(null);
+  const [role, setRole] = useState("Software Engineer");
+  const [skills, setSkills] = useState([]);
+  const [custom, setCustom] = useState("");
+  const [hours, setHours] = useState(15);
+  const [weeks, setWeeks] = useState(8);
+  const [loading, setLoading] = useState(false);
+  const [roadmap, setRoadmap] = useState(null);
   const [openWeek, setOpenWeek] = useState(0);
+  const [completedTasks, setCompletedTasks] = useState({});
 
   const suggestedSkills = SKILLS_BY_ROLE[role] || [];
 
   const toggleSkill = (s) =>
-    setSkills(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+    setSkills((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
 
   const addCustom = () => {
     const s = custom.trim();
-    if (s && !skills.includes(s)) { setSkills(p => [...p, s]); setCustom(""); }
+    if (s && !skills.includes(s)) {
+      setSkills((p) => [...p, s]);
+      setCustom("");
+    }
+  };
+
+  const toggleTaskDone = (taskKey) => {
+    setCompletedTasks((prev) => ({
+      ...prev,
+      [taskKey]: !prev[taskKey],
+    }));
   };
 
   const generate = async () => {
-    if (!role) { toast.error("Select a target role"); return; }
+    if (!role) {
+      toast.error("Please select a target role.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.post("/api/roadmap/generate", {
-        target_role: role, missing_skills: skills,
-        weekly_hours: hours, duration_weeks: weeks,
+        target_role: role,
+        missing_skills: skills,
+        weekly_hours: hours,
+        duration_weeks: weeks,
       });
       setRoadmap(res.data);
       setOpenWeek(0);
-      toast.success("Roadmap generated!");
+      setCompletedTasks({});
+      toast.success("Personalized AI roadmap generated!");
     } catch (e) {
-      toast.error(e.response?.data?.errors?.[0] || "Failed — check Gemini API key");
-    } finally { setLoading(false); }
+      toast.error(e.response?.data?.errors?.[0] || "Generation failed. Check server connection.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-2xl font-bold text-white mb-1">AI Roadmap Generator</h1>
-          <p className="text-gray-400 mb-8">Get a personalized week-by-week learning plan powered by Gemini AI.</p>
+    <div className="min-h-screen bg-[#07090e] bg-grid-pattern p-4 sm:p-6 lg:p-8">
+      <div className="max-w-5xl mx-auto space-y-8">
 
-          {!roadmap ? (
-            <div className="space-y-6">
-              {/* Role */}
-              <div className="card">
-                <label className="block text-sm font-medium text-gray-300 mb-3">Target Role</label>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {ROLES.map(r => (
-                    <button key={r} onClick={() => setRole(r)}
-                      className={`p-3 rounded-lg border text-sm text-left transition-all
-                        ${role === r ? "border-brand-500 bg-brand-600/20 text-white"
-                                     : "border-gray-700 text-gray-400 hover:border-gray-600"}`}>
-                      {r}
+        {/* ── HEADER ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-400 uppercase tracking-wider">
+              <span>Placement Intelligence</span>
+              <span>/</span>
+              <span>Adaptive Curriculum</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              AI Personalized Learning Roadmap
+            </h1>
+            <p className="text-slate-400 text-sm max-w-2xl">
+              Synthesize your target role, available study hours, and skill gaps into a prioritized week-by-week sprint schedule.
+            </p>
+          </div>
+
+          {roadmap && (
+            <button
+              onClick={() => setRoadmap(null)}
+              className="btn-secondary flex items-center gap-1.5 text-xs font-semibold px-4 py-2 shrink-0"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Configure New Plan</span>
+            </button>
+          )}
+        </div>
+
+        {/* ── SETUP FORM ── */}
+        {!roadmap ? (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            
+            {/* Target Role Selector */}
+            <div className="card p-6 space-y-4">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                1. Select Target Engineering Position
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {ROLES.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => {
+                      setRole(r);
+                      setSkills([]);
+                    }}
+                    className={`p-3 rounded-xl border text-xs font-medium text-left transition-all ${
+                      role === r
+                        ? "border-indigo-500 bg-indigo-600/20 text-white font-semibold ring-1 ring-indigo-500/50"
+                        : "border-slate-800 bg-slate-950/40 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Skills selection */}
+            <div className="card p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                  2. Priority Skills to Master
+                </label>
+                <span className="text-[11px] text-slate-500">
+                  {skills.length ? `${skills.length} chosen` : "Leave empty for standard full curriculum"}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {suggestedSkills.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => toggleSkill(s)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                      skills.includes(s)
+                        ? "bg-indigo-600 border-indigo-500 text-white font-semibold"
+                        : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+
+              {/* Add custom skill */}
+              <div className="flex gap-2 pt-2 border-t border-slate-800/80">
+                <input
+                  value={custom}
+                  onChange={(e) => setCustom(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addCustom()}
+                  placeholder="Type custom skill to focus on..."
+                  className="input-field text-xs"
+                />
+                <button
+                  onClick={addCustom}
+                  className="btn-secondary px-4 text-xs font-semibold shrink-0"
+                >
+                  Add Focus
+                </button>
+              </div>
+            </div>
+
+            {/* Duration & Weekly Hours */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              
+              {/* Duration */}
+              <div className="card p-6 space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                  3. Program Duration
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[4, 8, 12].map((w) => (
+                    <button
+                      key={w}
+                      onClick={() => setWeeks(w)}
+                      className={`py-3 rounded-xl border text-xs font-bold transition-all ${
+                        weeks === w
+                          ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-600/20"
+                          : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      {w} Weeks
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Skills to learn */}
-              {role && (
-                <div className="card">
-                  <label className="block text-sm font-medium text-gray-300 mb-1">
-                    Skills you want to learn
-                    <span className="text-gray-500 font-normal ml-1">(leave empty for a general roadmap)</span>
+              {/* Weekly Hours Slider */}
+              <div className="card p-6 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                    4. Commitment
                   </label>
-                  <p className="text-xs text-gray-500 mb-3">Suggested for {role}:</p>
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {suggestedSkills.map(s => (
-                      <button key={s} onClick={() => toggleSkill(s)}
-                        className={`px-3 py-1.5 rounded-full text-sm border transition-all
-                          ${skills.includes(s)
-                            ? "bg-brand-600 border-brand-500 text-white"
-                            : "bg-gray-800 border-gray-700 text-gray-300 hover:border-brand-600"}`}>
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <input value={custom} onChange={e => setCustom(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && addCustom()}
-                      placeholder="Add custom skill..." className="input-field flex-1" />
-                    <button onClick={addCustom} className="btn-secondary px-4">Add</button>
-                  </div>
-                  {skills.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {skills.map(s => (
-                        <span key={s} onClick={() => toggleSkill(s)}
-                          className="px-2.5 py-1 bg-brand-900/50 border border-brand-600/50 text-brand-300 text-xs rounded-full cursor-pointer hover:bg-red-900/30 hover:border-red-600/50 hover:text-red-300 transition-colors">
-                          {s} ✕
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Duration & Hours */}
-              <div className="card">
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-3">Duration</label>
-                    <div className="flex gap-2">
-                      {[4, 8, 12].map(w => (
-                        <button key={w} onClick={() => setWeeks(w)}
-                          className={`flex-1 py-2 rounded-lg border text-sm transition-all
-                            ${weeks === w ? "border-brand-500 bg-brand-600/20 text-white"
-                                         : "border-gray-700 text-gray-400 hover:border-gray-600"}`}>
-                          {w}w
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-3">
-                      Hours/week: <span className="text-brand-400">{hours}h</span>
-                    </label>
-                    <input type="range" min={5} max={40} step={5} value={hours}
-                      onChange={e => setHours(Number(e.target.value))}
-                      className="w-full accent-brand-500" />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>5h</span><span>40h</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <button onClick={generate} disabled={loading || !role}
-                className="btn-primary w-full py-3 text-base">
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/>
-                    Generating with Gemini AI…
+                  <span className="text-xs font-bold text-indigo-400">
+                    {hours} Hours / Week
                   </span>
-                ) : "Generate My Roadmap"}
-              </button>
-            </div>
-          ) : (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
-              {/* Header */}
-              <div className="card border-brand-500/30 bg-brand-900/10">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-white">{roadmap.target_role}</h2>
-                    <p className="text-gray-400 text-sm mt-1">
-                      {roadmap.duration_weeks}-week plan · {roadmap.weekly_hours}h/week
-                    </p>
-                    {roadmap.roadmap?.overview && (
-                      <p className="text-gray-300 text-sm mt-2">{roadmap.roadmap.overview}</p>
-                    )}
-                  </div>
-                  <button onClick={() => setRoadmap(null)} className="btn-secondary text-sm">
-                    New Roadmap
-                  </button>
+                </div>
+                <input
+                  type="range"
+                  min={5}
+                  max={40}
+                  step={5}
+                  value={hours}
+                  onChange={(e) => setHours(Number(e.target.value))}
+                  className="w-full accent-indigo-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[11px] text-slate-500">
+                  <span>5h (Casual)</span>
+                  <span>20h (Focused)</span>
+                  <span>40h (Bootcamp)</span>
                 </div>
               </div>
 
-              {/* Week accordion */}
-              {(roadmap.roadmap?.weeks || []).map((w, i) => (
-                <div key={i} className="card cursor-pointer" onClick={() => setOpenWeek(openWeek === i ? -1 : i)}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-brand-600/20 border border-brand-500/40 flex items-center justify-center text-brand-400 text-sm font-bold">
-                        {w.week}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-white text-sm">{w.title}</h3>
-                        <p className="text-gray-500 text-xs">{w.topics?.join(", ")}</p>
-                      </div>
-                    </div>
-                    <span className="text-gray-500 text-lg">{openWeek === i ? "▲" : "▼"}</span>
-                  </div>
+            </div>
 
-                  <AnimatePresence>
-                    {openWeek === i && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                        <div className="mt-4 pt-4 border-t border-gray-800 grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-xs font-medium text-brand-400 mb-2">📚 Topics</p>
-                            <ul className="space-y-1">
-                              {w.topics?.map((t, j) => (
-                                <li key={j} className="text-sm text-gray-300 flex gap-2"><span>•</span>{t}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium text-green-400 mb-2">🔗 Resources</p>
-                            <ul className="space-y-1">
-                              {w.resources?.map((r, j) => (
-                                <li key={j} className="text-sm text-gray-300 flex gap-2"><span>•</span>{r}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium text-amber-400 mb-2">✅ Practice Tasks</p>
-                            <ul className="space-y-1">
-                              {w.tasks?.map((t, j) => (
-                                <li key={j} className="text-sm text-gray-300 flex gap-2"><span>•</span>{t}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <p className="text-xs font-medium text-purple-400 mb-2">🚀 Mini Project</p>
-                            <p className="text-sm text-gray-300">{w.mini_project}</p>
+            {/* Launch Button */}
+            <button
+              onClick={generate}
+              disabled={loading || !role}
+              className="btn-primary w-full py-3.5 text-sm font-semibold flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Synthesizing Sprint Curriculum with Groq AI…</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  <span>Generate Personalized Roadmap</span>
+                </>
+              )}
+            </button>
+
+          </motion.div>
+        ) : (
+          /* ── ROADMAP RESULTS & TIMELINE ── */
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            
+            {/* Overview Hero */}
+            <div className="p-6 rounded-3xl bg-gradient-to-r from-indigo-950/40 via-slate-900 to-slate-900 border border-indigo-500/30 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 border border-indigo-500/30 text-indigo-300">
+                  {roadmap.target_role}
+                </span>
+                <span className="text-xs text-slate-400 font-medium">
+                  {roadmap.duration_weeks} Weeks Plan · {roadmap.weekly_hours}h / week
+                </span>
+              </div>
+              <p className="text-slate-300 text-sm leading-relaxed">
+                {roadmap.roadmap?.overview || "Comprehensive preparation track optimized for technical interviews."}
+              </p>
+            </div>
+
+            {/* Week Accordion Timeline */}
+            <div className="space-y-3">
+              {(roadmap.roadmap?.weeks || []).map((weekItem, i) => {
+                const isOpen = openWeek === i;
+                return (
+                  <div
+                    key={i}
+                    className="card overflow-hidden transition-all border border-slate-800 hover:border-slate-700/80"
+                  >
+                    {/* Accordion Trigger */}
+                    <div
+                      onClick={() => setOpenWeek(isOpen ? -1 : i)}
+                      className="p-5 flex items-center justify-between cursor-pointer select-none"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 font-bold text-xs flex items-center justify-center">
+                          W{weekItem.week}
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-white text-sm">
+                            {weekItem.title}
+                          </h3>
+                          <div className="text-[11px] text-slate-400 flex items-center gap-2">
+                            <span>{weekItem.topics?.slice(0, 3).join(", ")}</span>
+                            {weekItem.topics?.length > 3 && <span>+{weekItem.topics.length - 3} more</span>}
                           </div>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ))}
-            </motion.div>
-          )}
-        </motion.div>
+                      </div>
+
+                      <button className="text-slate-400 hover:text-white">
+                        {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+                    </div>
+
+                    {/* Accordion Body */}
+                    <AnimatePresence>
+                      {isOpen && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="px-5 pb-5 pt-2 border-t border-slate-800/70"
+                        >
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-2">
+                            
+                            {/* Topics */}
+                            <div className="space-y-2 p-3.5 rounded-xl bg-slate-950/40 border border-slate-800/60">
+                              <div className="font-bold text-indigo-400 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                                <BookOpen className="w-3.5 h-3.5" />
+                                <span>Core Topics</span>
+                              </div>
+                              <ul className="space-y-1.5 text-slate-300">
+                                {weekItem.topics?.map((t, idx) => (
+                                  <li key={idx} className="flex items-start gap-2">
+                                    <span className="text-indigo-500 mt-0.5">•</span>
+                                    <span>{t}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+
+                            {/* Resources */}
+                            <div className="space-y-2 p-3.5 rounded-xl bg-slate-950/40 border border-slate-800/60">
+                              <div className="font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                                <ExternalLink className="w-3.5 h-3.5" />
+                                <span>Recommended Resources</span>
+                              </div>
+                              <ul className="space-y-1.5 text-slate-300">
+                                {weekItem.resources?.map((r, idx) => (
+                                  <li key={idx} className="flex items-start gap-2">
+                                    <span className="text-emerald-500 mt-0.5">•</span>
+                                    <span>{r}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+
+                            {/* Interactive Tasks */}
+                            <div className="space-y-2 p-3.5 rounded-xl bg-slate-950/40 border border-slate-800/60">
+                              <div className="font-bold text-amber-400 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                                <CheckSquare className="w-3.5 h-3.5" />
+                                <span>Weekly Practice Tasks</span>
+                              </div>
+                              <div className="space-y-1.5">
+                                {weekItem.tasks?.map((task, idx) => {
+                                  const taskKey = `${i}-${idx}`;
+                                  const isDone = !!completedTasks[taskKey];
+                                  return (
+                                    <div
+                                      key={idx}
+                                      onClick={() => toggleTaskDone(taskKey)}
+                                      className={`flex items-start gap-2 p-1.5 rounded-lg cursor-pointer transition-colors ${
+                                        isDone ? "text-slate-500 line-through" : "text-slate-300 hover:bg-slate-900/60"
+                                      }`}
+                                    >
+                                      <CheckCircle2
+                                        className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
+                                          isDone ? "text-emerald-400" : "text-slate-600"
+                                        }`}
+                                      />
+                                      <span>{task}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* Mini Project */}
+                            <div className="space-y-2 p-3.5 rounded-xl bg-slate-950/40 border border-slate-800/60">
+                              <div className="font-bold text-purple-400 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                                <Rocket className="w-3.5 h-3.5" />
+                                <span>Milestone Project</span>
+                              </div>
+                              <p className="text-slate-300 leading-relaxed">
+                                {weekItem.mini_project || "Build a working prototype demonstrating the concepts learned this week."}
+                              </p>
+                            </div>
+
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
+
+          </motion.div>
+        )}
+
       </div>
     </div>
   );

@@ -1,15 +1,16 @@
-from database.db import db
+from sqlalchemy import Column, Integer, String, Text, JSON
+from database.db import Base
 
-class CompanyPreparation(db.Model):
+class CompanyPreparation(Base):
     __tablename__ = "company_preparation"
 
-    id                   = db.Column(db.Integer, primary_key=True)
-    company_name         = db.Column(db.String(100), unique=True, nullable=False)
-    interview_pattern    = db.Column(db.JSON, default=dict)
-    frequent_topics      = db.Column(db.JSON, default=list)
-    prep_strategy        = db.Column(db.Text)
-    difficulty_level     = db.Column(db.String(20), default="medium")
-    logo_url             = db.Column(db.String(300))
+    id                   = Column(Integer, primary_key=True, index=True)
+    company_name         = Column(String(100), unique=True, nullable=False)
+    interview_pattern    = Column(JSON, default=dict)
+    frequent_topics      = Column(JSON, default=list)
+    prep_strategy        = Column(Text)
+    difficulty_level     = Column(String(20), default="medium")
+    logo_url             = Column(String(300))
 
     def to_dict(self):
         return {

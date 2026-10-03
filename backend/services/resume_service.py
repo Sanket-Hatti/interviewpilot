@@ -1,30 +1,32 @@
 import os
 import re
 import fitz  # PyMuPDF
-import spacy
-
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    raise RuntimeError("Run: python -m spacy download en_core_web_sm")
 
 SKILL_KEYWORDS = {
+    # Core Languages
     "python", "java", "javascript", "typescript", "c", "c++", "c#", "go",
-    "rust", "kotlin", "swift", "ruby", "php", "scala", "r", "matlab",
+    "rust", "kotlin", "swift", "ruby", "php", "scala", "r", "matlab", "sql", "bash",
+    # Frontend
     "react", "vue", "angular", "html", "css", "tailwind", "bootstrap",
     "next.js", "nuxt", "svelte", "redux", "jquery",
+    # Backend & Frameworks
     "flask", "django", "fastapi", "node.js", "express", "spring", "spring boot",
     "laravel", "rails", "asp.net",
+    # Databases
     "postgresql", "mysql", "mongodb", "redis", "sqlite", "oracle",
     "cassandra", "dynamodb", "firebase", "supabase",
+    # Cloud, DevOps & Infrastructure
     "aws", "azure", "gcp", "docker", "kubernetes", "terraform", "ansible",
-    "jenkins", "github actions", "ci/cd", "linux", "nginx",
+    "jenkins", "github actions", "ci/cd", "linux", "nginx", "networking", "cloud",
+    # AI / ML / Data Science
     "machine learning", "deep learning", "tensorflow", "pytorch", "keras",
     "scikit-learn", "pandas", "numpy", "matplotlib", "opencv", "nlp",
-    "computer vision", "hugging face", "langchain",
+    "computer vision", "hugging face", "langchain", "mlops", "statistics",
+    # Tools, Methodologies & Core CS Fundamentals
+    "data structures", "algorithms", "system design", "oop", "object-oriented programming",
     "git", "github", "gitlab", "jira", "postman", "figma",
     "rest api", "graphql", "websocket", "microservices", "agile", "scrum",
-    "sql", "tableau", "power bi", "excel", "spark", "hadoop", "airflow",
+    "tableau", "power bi", "excel", "spark", "hadoop", "airflow",
 }
 
 SECTION_PATTERNS = {

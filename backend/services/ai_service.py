@@ -1,13 +1,17 @@
 import os
 import json
 import time
-from groq import Groq
+from typing import AsyncGenerator
+from groq import Groq, AsyncGroq
 from dotenv import load_dotenv
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY", ""))
-MODEL  = "openai/gpt-oss-120b"   # Fast, free, capable
+API_KEY = os.getenv("GROQ_API_KEY", "")
+MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+
+client = Groq(api_key=API_KEY)
+async_client = AsyncGroq(api_key=API_KEY)
 
 
 def _call_groq(prompt: str, retries: int = 3) -> str:
@@ -28,15 +32,55 @@ def _call_groq(prompt: str, retries: int = 3) -> str:
                 raise RuntimeError(f"Groq API error: {str(e)}")
 
 
+async def stream_groq_response(prompt: str) -> AsyncGenerator[str, None]:
+    """Stream response tokens from Groq for SSE."""
+    stream = await async_client.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.7,
+        max_tokens=2048,
+        stream=True,
+    )
+    async for chunk in stream:
+        content = chunk.choices[0].delta.content
+        if content:
+            yield content
+
+
 def _parse_json(raw: str) -> dict | list:
     """Strip markdown fences and parse JSON safely."""
     raw = raw.replace("```json", "").replace("```", "").strip()
-    # Find first { or [
     for i, ch in enumerate(raw):
         if ch in "{[":
             raw = raw[i:]
             break
     return json.loads(raw)
+
+
+async def generate_json_response(prompt: str) -> dict | list | None:
+    """Async helper to generate a structured JSON response from Groq."""
+    try:
+        response = await async_client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=2048,
+            response_format={"type": "json_object"}
+        )
+        content = response.choices[0].message.content.strip()
+        return _parse_json(content)
+    except Exception:
+        try:
+            response = await async_client.chat.completions.create(
+                model=MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=2048,
+            )
+            content = response.choices[0].message.content.strip()
+            return _parse_json(content)
+        except Exception:
+            return None
 
 
 def improve_resume_bullet(bullet: str) -> str:
@@ -78,21 +122,51 @@ Generate all {duration_weeks} weeks."""
         return {"overview": "Roadmap generated successfully.", "weeks": [], "raw": raw}
 
 
-def generate_interview_questions(role: str, difficulty: str) -> dict:
-    prompt = f"""Generate interview questions for a {role} position at {difficulty} difficulty.
+DEFAULT_QUESTIONS = {
+    "technical": [
+        "Explain the difference between a process and a thread, and how concurrency is handled in your primary language.",
+        "How does a hash map work internally, and what are its average and worst-case time complexities?",
+        "Describe the differences between relational (SQL) and non-relational (NoSQL) databases, and when you would choose each.",
+        "Explain the complete request-response lifecycle when a browser requests an endpoint over HTTPS.",
+        "How do you design a REST API to ensure scalability, proper HTTP status codes, and idempotency?"
+    ],
+    "behavioral": [
+        "Tell me about a challenging bug you encountered in a recent project. How did you diagnose and resolve it?",
+        "Describe a situation where you disagreed with a peer or teammate on an architectural decision. How did you reach consensus?",
+        "Give an example of a project where requirements changed close to a deadline. How did you prioritize?"
+    ],
+    "hr": [
+        "What motivated you to pursue this role and what aspects of this engineering culture resonate with you?",
+        "What are your greatest technical strengths, and what is one area you are actively learning to improve?",
+        "Where do you see your engineering skills and career trajectory in the next 2-3 years?"
+    ]
+}
 
-Return ONLY this JSON, no explanation:
+
+def generate_interview_questions(role: str, difficulty: str, company: str = None) -> dict:
+    company_context = f" targeting {company}'s hiring standards" if company else ""
+    prompt = f"""Generate 11 high-quality interview questions for a {role} position{company_context} at {difficulty} difficulty.
+Include:
+- 5 technical questions covering data structures, system fundamentals, and domain architecture.
+- 3 behavioral questions using the STAR framework.
+- 3 culture, work style, and HR questions.
+
+Return ONLY this JSON object, no explanation, no markdown:
 {{
   "technical": ["q1", "q2", "q3", "q4", "q5"],
   "behavioral": ["q1", "q2", "q3"],
   "hr": ["q1", "q2", "q3"]
 }}"""
 
-    raw = _call_groq(prompt)
     try:
-        return _parse_json(raw)
-    except json.JSONDecodeError:
-        return {"technical": [], "behavioral": [], "hr": [], "raw": raw}
+        raw = _call_groq(prompt)
+        parsed = _parse_json(raw)
+        if isinstance(parsed, dict) and parsed.get("technical"):
+            return parsed
+    except Exception:
+        pass
+        
+    return DEFAULT_QUESTIONS
 
 
 def evaluate_interview_answers(role: str, questions: list, answers: list) -> dict:
@@ -115,8 +189,14 @@ Return ONLY this JSON, no explanation:
     try:
         return _parse_json(raw)
     except json.JSONDecodeError:
-        return {"overall_score": 0, "technical_accuracy": 0, "communication": 0,
-                "completeness": 0, "detailed_feedback": [], "suggested_improvements": []}
+        return {
+            "overall_score": 0,
+            "technical_accuracy": 0,
+            "communication": 0,
+            "completeness": 0,
+            "detailed_feedback": [],
+            "suggested_improvements": []
+        }
 
 
 def chat_with_ai(message: str, history: list) -> str:

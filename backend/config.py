@@ -4,39 +4,33 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-class Config:
+class Settings:
     # Database
-    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/interviewpilot")
-    SQLALCHEMY_DATABASE_URI = DATABASE_URL
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL",
+        "sqlite:///./interviewpilot.db"
+    )
 
     # JWT
-    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-production")
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-production")
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRES_HOURS: int = 24
 
-    # Gemini AI
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    # AI
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
-    # File Upload
-    MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB
-    UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
-    ALLOWED_EXTENSIONS = {"pdf"}
+    # Uploads
+    MAX_CONTENT_LENGTH: int = 10 * 1024 * 1024  # 10 MB
+    UPLOAD_FOLDER: str = os.path.join(os.path.dirname(__file__), "uploads")
+    ALLOWED_EXTENSIONS: set = {"pdf"}
 
     # CORS
-    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+    CORS_ORIGINS: list[str] = [
+        origin.strip()
+        for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+        if origin.strip()
+    ]
 
-    # Rate Limiting
-    RATELIMIT_DEFAULT = "200 per day;50 per hour"
-    RATELIMIT_STORAGE_URL = "memory://"
-
-class DevelopmentConfig(Config):
-    DEBUG = True
-
-class ProductionConfig(Config):
-    DEBUG = False
-
-config = {
-    "development": DevelopmentConfig,
-    "production": ProductionConfig,
-    "default": DevelopmentConfig
-}
+settings = Settings()
+os.makedirs(settings.UPLOAD_FOLDER, exist_ok=True)

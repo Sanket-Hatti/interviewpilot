@@ -1,8 +1,41 @@
-from flask_sqlalchemy import SQLAlchemy
+import os
+from sqlalchemy import create_engine
+from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from config import settings
 
-db = SQLAlchemy()
+db_url = settings.DATABASE_URL
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
 
-def init_db(app):
-    db.init_app(app)
-    with app.app_context():
-        db.create_all()
+connect_args = {}
+if db_url.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+
+engine = create_engine(
+    db_url,
+    connect_args=connect_args,
+    pool_pre_ping=True
+)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+def get_db():
+    db: Session = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+def init_db():
+    # Import all models so that Base.metadata has everything registered
+    import models.user
+    import models.resume
+    import models.role
+    import models.roadmap
+    import models.interview
+    import models.dsa
+    import models.company
+    import models.chat
+
+    Base.metadata.create_all(bind=engine)

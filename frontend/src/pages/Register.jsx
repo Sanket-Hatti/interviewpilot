@@ -21,7 +21,7 @@ export default function Register() {
     setLoading(true);
     try {
       await register(form.full_name, form.email, form.password);
-      toast.success("Account created! Welcome aboard 🚀");
+      toast.success("Account created successfully. Welcome!");
       navigate("/dashboard");
     } catch (err) {
       const msgs = err.response?.data?.errors || ["Registration failed. Please try again."];

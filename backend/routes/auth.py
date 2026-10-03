@@ -1,87 +1,68 @@
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from database.db import db
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from database.db import get_db
 from models.user import User
+from schemas.auth import RegisterRequest, LoginRequest, AuthResponse, UserResponse
+from utils.auth import create_access_token, get_current_user
 
-auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
-
-def validate_register_input(data: dict):
-    errors = []
-    if not data.get("full_name") or len(data["full_name"].strip()) < 2:
-        errors.append("Full name must be at least 2 characters.")
-    if not data.get("email") or "@" not in data["email"]:
-        errors.append("A valid email is required.")
-    if not data.get("password") or len(data["password"]) < 6:
-        errors.append("Password must be at least 6 characters.")
-    return errors
-
-
-@auth_bp.route("/register", methods=["POST"])
-def register():
-    data = request.get_json(silent=True) or {}
-    errors = validate_register_input(data)
-    if errors:
-        return jsonify({"success": False, "errors": errors}), 400
-
-    if User.query.filter_by(email=data["email"].lower()).first():
-        return jsonify({"success": False, "errors": ["Email already registered."]}), 409
+@router.post("/register", status_code=status.HTTP_201_CREATED)
+def register(data: RegisterRequest, db: Session = Depends(get_db)):
+    clean_email = data.email.lower().strip()
+    existing = db.query(User).filter(User.email == clean_email).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"success": False, "errors": ["Email already registered."]}
+        )
 
     user = User(
-        full_name=data["full_name"].strip(),
-        email=data["email"].lower().strip()
+        full_name=data.full_name.strip(),
+        email=clean_email
     )
-    user.set_password(data["password"])
+    user.set_password(data.password)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
 
-    db.session.add(user)
-    db.session.commit()
+    access_token = create_access_token(user.id)
 
-    access_token = create_access_token(identity=str(user.id))
-
-    return jsonify({
+    return {
         "success": True,
         "message": "Account created successfully.",
         "access_token": access_token,
         "user": user.to_dict()
-    }), 201
+    }
 
+@router.post("/login")
+def login(data: LoginRequest, db: Session = Depends(get_db)):
+    clean_email = data.email.lower().strip()
+    user = db.query(User).filter(User.email == clean_email).first()
+    if not user or not user.check_password(data.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"success": False, "errors": ["Invalid email or password."]}
+        )
 
-@auth_bp.route("/login", methods=["POST"])
-def login():
-    data = request.get_json(silent=True) or {}
-    email = (data.get("email") or "").lower().strip()
-    password = data.get("password") or ""
+    access_token = create_access_token(user.id)
 
-    if not email or not password:
-        return jsonify({"success": False, "errors": ["Email and password are required."]}), 400
-
-    user = User.query.filter_by(email=email).first()
-    if not user or not user.check_password(password):
-        return jsonify({"success": False, "errors": ["Invalid email or password."]}), 401
-
-    access_token = create_access_token(identity=str(user.id))
-
-    return jsonify({
+    return {
         "success": True,
-        "message": "Logged in successfully.",
         "access_token": access_token,
         "user": user.to_dict()
-    }), 200
+    }
 
+@router.get("/me")
+def me(current_user: User = Depends(get_current_user)):
+    return {
+        "success": True,
+        "user": current_user.to_dict()
+    }
 
-@auth_bp.route("/me", methods=["GET"])
-@jwt_required()
-def get_current_user():
-    user_id = int(get_jwt_identity())
-    user = db.session.get(User, user_id)
-    if not user:
-        return jsonify({"success": False, "errors": ["User not found."]}), 404
-    return jsonify({"success": True, "user": user.to_dict()}), 200
-
-
-@auth_bp.route("/logout", methods=["POST"])
-@jwt_required()
-def logout():
-    # JWT is stateless — client drops the token.
-    # For production, add a token denylist (Redis).
-    return jsonify({"success": True, "message": "Logged out successfully."}), 200
+@router.post("/logout")
+def logout(current_user: User = Depends(get_current_user)):
+    return {
+        "success": True,
+        "message": "Logged out successfully."
+    }

@@ -47,12 +47,13 @@
 | Layer      | Technology                                          |
 |------------|-----------------------------------------------------|
 | Frontend   | React 18, Tailwind CSS, Framer Motion, Recharts     |
-| Backend    | Flask, SQLAlchemy, Flask-JWT-Extended, Flask-CORS   |
-| AI         | Groq API (Llama 3.3 70B)                           |
+| Backend    | FastAPI, SQLAlchemy 2.0, Uvicorn, Pydantic v2       |
+| AI         | Groq API (High-speed Llama / GPT models)            |
 | NLP        | spaCy, PyMuPDF                                      |
-| Database   | PostgreSQL (Neon)                                   |
-| Auth       | JWT + bcrypt                                        |
-| Deploy     | Vercel (frontend) + Render (backend)                |
+| Database   | PostgreSQL (Neon) or SQLite (Local)                 |
+| Auth       | JWT (PyJWT) + bcrypt                                |
+| API Docs   | Interactive Swagger UI at `/docs`                   |
+| Deploy     | Vercel (frontend) + Render / Railway (backend)      |
 
 ---
 
@@ -61,30 +62,39 @@
 ```
 interviewpilot/
 ├── backend/
-│   ├── app.py                  # Flask app factory
-│   ├── config.py               # Environment config
-│   ├── wsgi.py                 # Gunicorn entry point
-│   ├── models/                 # SQLAlchemy models
+│   ├── main.py                 # FastAPI app entry point & CORS
+│   ├── config.py               # Environment & Settings
+│   ├── models/                 # SQLAlchemy 2.0 models
 │   │   ├── user.py
 │   │   ├── resume.py
 │   │   ├── role.py
 │   │   ├── roadmap.py
-│   │   └── interview.py
-│   ├── routes/                 # Flask blueprints
-│   │   ├── auth.py             # Register / Login / JWT
+│   │   ├── interview.py
+│   │   ├── dsa.py
+│   │   ├── company.py
+│   │   └── chat.py
+│   ├── routes/                 # FastAPI APIRouters
+│   │   ├── auth.py             # Register / Login / JWT / Me
 │   │   ├── resume.py           # PDF upload + analysis
 │   │   ├── roles.py            # Role matching
 │   │   ├── roadmap.py          # AI roadmap generation
-│   │   └── interview.py        # Mock interview
+│   │   └── interview.py        # Mock interview + SSE streaming
+│   ├── schemas/                # Pydantic validation schemas
+│   │   ├── auth.py
+│   │   ├── interview.py
+│   │   ├── roadmap.py
+│   │   ├── roles.py
+│   │   └── resume.py
 │   ├── services/
-│   │   ├── ai_service.py       # Groq AI integration
+│   │   ├── ai_service.py       # Groq AI async streaming & completions
 │   │   ├── resume_service.py   # PDF parsing + scoring
 │   │   └── role_service.py     # Skill matching algorithm
 │   ├── database/
-│   │   ├── db.py               # SQLAlchemy init
-│   │   └── seed.py             # Seed roles data
+│   │   ├── db.py               # SQLAlchemy 2.0 Session & Base
+│   │   └── seed.py             # Seed roles and companies
 │   ├── utils/
-│   │   └── file_utils.py       # File upload helpers
+│   │   ├── auth.py             # JWT dependencies & password utils
+│   │   └── file_utils.py       # UploadFile helpers
 │   └── requirements.txt
 └── frontend/
     ├── src/
@@ -112,7 +122,7 @@ interviewpilot/
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+
-- PostgreSQL (or Neon free tier)
+- PostgreSQL (or Neon free tier) / SQLite
 
 ### Backend
 
@@ -127,9 +137,6 @@ venv\Scripts\activate          # Windows
 # Install dependencies
 pip install -r requirements.txt
 
-# Download spaCy model
-python -m spacy download en_core_web_sm
-
 # Setup environment
 copy .env.example .env         # Windows
 # cp .env.example .env         # Mac/Linux
@@ -137,7 +144,6 @@ copy .env.example .env         # Windows
 
 Edit `.env`:
 ```env
-FLASK_ENV=development
 DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 JWT_SECRET_KEY=your-secret-key-here
 GROQ_API_KEY=your-groq-api-key-here
@@ -145,14 +151,15 @@ CORS_ORIGINS=http://localhost:5173
 ```
 
 ```bash
-# Start backend
-python app.py
-
 # Seed database (first time only)
 python database/seed.py
+
+# Start FastAPI backend
+uvicorn main:app --reload --port 5000
 ```
 
 Backend runs at: `http://localhost:5000`
+Interactive API Docs (Swagger UI): `http://localhost:5000/docs`
 
 ### Frontend
 
@@ -200,6 +207,7 @@ Frontend runs at: `http://localhost:5173`
 |--------|----------|-------------|------|
 | POST | `/api/interview/generate` | Generate questions | Yes |
 | POST | `/api/interview/submit` | Submit + get feedback | Yes |
+| POST | `/api/interview/chat-stream` | Real-time AI streaming (SSE) | Yes |
 | GET | `/api/interview/history` | Past interviews | Yes |
 
 ---
@@ -212,11 +220,11 @@ Frontend runs at: `http://localhost:5173`
 3. Framework: Vite — Build: `npm run build` — Output: `dist`
 4. Add env var: `VITE_API_URL=https://your-render-url.onrender.com`
 
-### Backend → Render
+### Backend → Render / Railway
 1. Connect GitHub repo to Render
 2. Root directory: `backend`
-3. Build command: `pip install -r requirements.txt && python -m spacy download en_core_web_sm`
-4. Start command: `python -m gunicorn wsgi:app`
+3. Build command: `pip install -r requirements.txt`
+4. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
 5. Add environment variables (DATABASE_URL, JWT_SECRET_KEY, GROQ_API_KEY, CORS_ORIGINS)
 
 ---

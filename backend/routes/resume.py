@@ -1,55 +1,72 @@
 import os
-from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
-
-from database.db import db
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from sqlalchemy.orm import Session
+from config import settings
+from database.db import get_db
 from models.resume import Resume, Analysis
 from models.role import Role
+from models.user import User
+from schemas.resume import BulletImproveRequest
 from services.resume_service import analyze_resume
 from services.role_service import match_all_roles
+from utils.auth import get_current_user
 from utils.file_utils import allowed_file, save_upload
 
-resume_bp = Blueprint("resume", __name__, url_prefix="/api/resume")
+router = APIRouter(prefix="/api/resume", tags=["Resume"])
 
-
-@resume_bp.route("/analyze", methods=["POST"])
-@jwt_required()
-def analyze():
-    user_id = int(get_jwt_identity())
-
-    if "file" not in request.files:
-        return jsonify({"success": False, "errors": ["No file uploaded."]}), 400
-
-    file = request.files["file"]
+@router.post("/analyze")
+async def analyze(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     if not file.filename:
-        return jsonify({"success": False, "errors": ["Empty filename."]}), 400
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"success": False, "errors": ["Empty filename."]}
+        )
     if not allowed_file(file.filename):
-        return jsonify({"success": False, "errors": ["Only PDF files are allowed."]}), 400
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"success": False, "errors": ["Only PDF files are allowed."]}
+        )
 
-    # Save file
-    upload_folder = current_app.config["UPLOAD_FOLDER"]
-    filename, filepath = save_upload(file, upload_folder)
+    try:
+        filename, filepath = save_upload(file, settings.UPLOAD_FOLDER, max_size_bytes=settings.MAX_CONTENT_LENGTH)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"success": False, "errors": [str(e)]}
+        )
 
     try:
         result = analyze_resume(filepath)
     except ValueError as e:
-        os.remove(filepath)
-        return jsonify({"success": False, "errors": [str(e)]}), 422
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"success": False, "errors": [str(e)]}
+        )
     except Exception as e:
-        os.remove(filepath)
-        return jsonify({"success": False, "errors": ["Analysis failed. Please try again."]}), 500
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"success": False, "errors": ["Analysis failed. Please try again."]}
+        )
 
-    # Save Resume record
+    # Save Resume
     resume = Resume(
-        user_id=user_id,
+        user_id=current_user.id,
         filename=filename,
         file_path=filepath,
         raw_text=result["raw_text"],
     )
-    db.session.add(resume)
-    db.session.flush()  # Get resume.id before commit
+    db.add(resume)
+    db.flush()
 
-    # Save Analysis record
+    # Save Analysis
     analysis = Analysis(
         resume_id=resume.id,
         resume_score=result["resume_score"],
@@ -60,56 +77,56 @@ def analyze():
         strengths=result["strengths"],
         weaknesses=result["weaknesses"],
     )
-    db.session.add(analysis)
-    db.session.commit()
+    db.add(analysis)
+    db.commit()
+    db.refresh(analysis)
 
-    # Auto-run role matching with extracted skills
-    roles = Role.query.all()
+    # Match roles
+    roles = db.query(Role).all()
     role_matches = match_all_roles(result["extracted_skills"], roles)
 
-    return jsonify({
-        "success":      True,
-        "resume_id":    resume.id,
-        "analysis_id":  analysis.id,
+    return {
+        "success": True,
+        "resume_id": resume.id,
+        "analysis_id": analysis.id,
         "resume_score": result["resume_score"],
         "extracted_skills": result["extracted_skills"],
-        "experience":   result["experience"],
-        "education":    result["education"],
-        "projects":     result["projects"],
-        "strengths":    result["strengths"],
-        "weaknesses":   result["weaknesses"],
+        "experience": result["experience"],
+        "education": result["education"],
+        "projects": result["projects"],
+        "strengths": result["strengths"],
+        "weaknesses": result["weaknesses"],
         "score_breakdown": result["score_breakdown"],
-        "role_matches": role_matches[:5],  # Top 5 roles
-    }), 200
+        "role_matches": role_matches[:5],
+    }
 
-
-@resume_bp.route("/history", methods=["GET"])
-@jwt_required()
-def history():
-    user_id = int(get_jwt_identity())
-    resumes = Resume.query.filter_by(user_id=user_id).order_by(Resume.uploaded_at.desc()).all()
+@router.get("/history")
+def history(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    resumes = db.query(Resume).filter(Resume.user_id == current_user.id).order_by(Resume.uploaded_at.desc()).all()
     result = []
     for r in resumes:
-        latest = Analysis.query.filter_by(resume_id=r.id).order_by(Analysis.analyzed_at.desc()).first()
+        latest = db.query(Analysis).filter(Analysis.resume_id == r.id).order_by(Analysis.analyzed_at.desc()).first()
         result.append({
             **r.to_dict(),
             "analysis": latest.to_dict() if latest else None,
         })
-    return jsonify({"success": True, "resumes": result}), 200
+    return {"success": True, "resumes": result}
 
-
-@resume_bp.route("/improve", methods=["POST"])
-@jwt_required()
-def improve_bullet():
-    """Improve a resume bullet point using Gemini AI."""
-    data = request.get_json(silent=True) or {}
-    bullet = (data.get("bullet") or "").strip()
-    if not bullet:
-        return jsonify({"success": False, "errors": ["Bullet text is required."]}), 400
-
+@router.post("/improve")
+def improve_bullet(
+    data: BulletImproveRequest,
+    current_user: User = Depends(get_current_user)
+):
+    bullet = data.bullet.strip()
     try:
         from services.ai_service import improve_resume_bullet
         improved = improve_resume_bullet(bullet)
-        return jsonify({"success": True, "original": bullet, "improved": improved}), 200
+        return {"success": True, "original": bullet, "improved": improved}
     except Exception as e:
-        return jsonify({"success": False, "errors": [str(e)]}), 500
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"success": False, "errors": [str(e)]}
+        )

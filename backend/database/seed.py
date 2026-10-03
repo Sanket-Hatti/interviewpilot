@@ -5,8 +5,7 @@ Usage: python database/seed.py
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from app import create_app
-from database.db import db
+from database.db import SessionLocal, init_db
 from models.role import Role
 from models.company import CompanyPreparation
 
@@ -130,30 +129,33 @@ COMPANIES = [
 ]
 
 def seed():
-    app = create_app("development")
-    with app.app_context():
+    init_db()
+    session = SessionLocal()
+    try:
         # Seed roles
         for role_data in ROLES:
-            exists = Role.query.filter_by(role_name=role_data["role_name"]).first()
+            exists = session.query(Role).filter(Role.role_name == role_data["role_name"]).first()
             if not exists:
                 role = Role(**role_data)
-                db.session.add(role)
+                session.add(role)
                 print(f"  Added role: {role_data['role_name']}")
             else:
                 print(f"  Skipped (exists): {role_data['role_name']}")
 
         # Seed companies
         for company_data in COMPANIES:
-            exists = CompanyPreparation.query.filter_by(company_name=company_data["company_name"]).first()
+            exists = session.query(CompanyPreparation).filter(CompanyPreparation.company_name == company_data["company_name"]).first()
             if not exists:
                 company = CompanyPreparation(**company_data)
-                db.session.add(company)
+                session.add(company)
                 print(f"  Added company: {company_data['company_name']}")
             else:
                 print(f"  Skipped (exists): {company_data['company_name']}")
 
-        db.session.commit()
+        session.commit()
         print("\nSeed complete.")
+    finally:
+        session.close()
 
 if __name__ == "__main__":
     seed()
