@@ -5,11 +5,16 @@ import bcrypt
 class User(db.Model):
     __tablename__ = "users"
 
-    id            = db.Column(db.Integer, primary_key=True)
-    full_name     = db.Column(db.String(120), nullable=False)
-    email         = db.Column(db.String(120), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(255), nullable=False)
-    created_at    = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    id                   = db.Column(db.Integer, primary_key=True)
+    full_name            = db.Column(db.String(120), nullable=False)
+    email                = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    password_hash        = db.Column(db.String(255), nullable=False)
+    career_goal          = db.Column(db.String(120), nullable=True)
+    target_role          = db.Column(db.String(120), nullable=True)
+    target_company       = db.Column(db.String(120), nullable=True)
+    resume_id            = db.Column(db.Integer, nullable=True)
+    onboarding_completed = db.Column(db.Boolean, default=False, nullable=False)
+    created_at           = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     resumes       = db.relationship("Resume",      backref="user", lazy=True, cascade="all, delete-orphan")
@@ -30,11 +35,17 @@ class User(db.Model):
 
     def to_dict(self) -> dict:
         return {
-            "id":         self.id,
-            "full_name":  self.full_name,
-            "email":      self.email,
-            "created_at": self.created_at.isoformat() if self.created_at else None
+            "id":                   self.id,
+            "full_name":            self.full_name,
+            "email":                self.email,
+            "career_goal":          self.career_goal,
+            "target_role":          self.target_role,
+            "target_company":       self.target_company,
+            "resume_id":            self.resume_id,
+            "onboarding_completed": bool(self.onboarding_completed),
+            "created_at":           self.created_at.isoformat() if self.created_at else None
         }
 
     def __repr__(self):
         return f"<User {self.email}>"
+

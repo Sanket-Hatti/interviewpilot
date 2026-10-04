@@ -34,6 +34,10 @@ export function AuthProvider({ children }) {
     return res.data;
   }, []);
 
+  const updateUser = useCallback((userData) => {
+    setUser(prev => (prev ? { ...prev, ...userData } : userData));
+  }, []);
+
   const logout = useCallback(async () => {
     try { await api.post("/api/auth/logout"); } catch (_) {}
     localStorage.removeItem("token");
@@ -41,7 +45,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

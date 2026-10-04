@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Link } from "react-router-dom";
 import api from "../utils/api";
+import { getNextBestAction } from "../utils/recommendations";
 import {
   ArrowRight,
   Mic,
@@ -195,66 +196,8 @@ export default function Dashboard() {
 
   // Next Best Action (AI Recommendation Foundation - agentic ready)
   const nextBestAction = useMemo(() => {
-    if (stats.resumeScore === null) {
-      return {
-        title: "Start with your resume",
-        description: "Upload your resume so InterviewPilot can understand your skills and create your personalized preparation plan.",
-        cta: "Analyze my resume →",
-        to: "/resume"
-      };
-    }
-    if (stats.roleMatchPct === null) {
-      return {
-        title: "Complete your target-role analysis",
-        description: "Match your extracted skills against 9 industry roles to benchmark requirements and discover dependencies.",
-        cta: "Analyze role fit →",
-        to: "/roles"
-      };
-    }
-    if (stats.missingSkills.length > 0) {
-      const skill = stats.missingSkills[0];
-      const isAws = skill.toLowerCase().includes("aws");
-      const isSql = skill.toLowerCase().includes("sql");
-      const title = isAws ? "Improve your AWS fundamentals" : isSql ? "Strengthen SQL JOINs" : `Strengthen ${skill}`;
-
-      return {
-        title,
-        description: `Your benchmark for ${stats.bestRole || "your target role"} shows ${skill} is currently an identified skill gap. Practice to close this gap.`,
-        cta: "Start practice →",
-        to: "/code"
-      };
-    }
-    if (stats.interviewsCompleted === 0) {
-      return {
-        title: "Complete your first practice session",
-        description: "Take a baseline simulation to benchmark technical knowledge, communication, and STAR-format responses.",
-        cta: "Start interview →",
-        to: "/interview"
-      };
-    }
-    if (stats.behavioralScore !== null && stats.technicalScore !== null && stats.behavioralScore < stats.technicalScore) {
-      return {
-        title: "Practice behavioral questions",
-        description: "Sharpen structured storytelling using the STAR framework to raise your communication evaluation score.",
-        cta: "Practice behavioral →",
-        to: "/interview"
-      };
-    }
-    if (stats.avgInterviewScore !== null && stats.avgInterviewScore < 80) {
-      return {
-        title: "Refine technical explanations",
-        description: `Your recent practice average is ${stats.avgInterviewScore}%. Take another session to sharpen structured delivery and technical depth.`,
-        cta: "Practice again →",
-        to: "/interview"
-      };
-    }
-    return {
-      title: "Explore target company tracks",
-      description: "Review specific interview formats, question patterns, and prep playbooks for American Express, TCS, Infosys, and more.",
-      cta: "Explore tracks →",
-      to: "/companies"
-    };
-  }, [stats]);
+    return getNextBestAction({ user, stats });
+  }, [user, stats]);
 
   // Recent Activity items combined
   const recentActivity = useMemo(() => {
@@ -405,10 +348,10 @@ export default function Dashboard() {
 
             <div className="shrink-0 pt-0.5 sm:pt-0">
               <Link
-                to={nextBestAction.to}
+                to={nextBestAction.route || nextBestAction.to}
                 className="btn-primary inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold px-4 py-2"
               >
-                <span>{nextBestAction.cta}</span>
+                <span>{nextBestAction.actionLabel || nextBestAction.cta}</span>
               </Link>
             </div>
           </div>

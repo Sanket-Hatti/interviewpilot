@@ -13,6 +13,7 @@ import About from "./pages/About";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import ResumeAnalyzer from "./pages/ResumeAnalyzer";
 import RoleMatch from "./pages/RoleMatch";
@@ -41,13 +42,38 @@ function ProtectedRoute({ children }) {
       </div>
     );
   }
-  return user ? <Layout>{children}</Layout> : <Navigate to="/login" replace />;
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  if (!user.onboarding_completed) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  return <Layout>{children}</Layout>;
+}
+
+function OnboardingRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#090a0f]">
+        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  if (user.onboarding_completed) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
 }
 
 function PublicRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  return !user ? children : <Navigate to="/dashboard" replace />;
+  if (!user) return children;
+  return user.onboarding_completed ? <Navigate to="/dashboard" replace /> : <Navigate to="/onboarding" replace />;
 }
 
 export default function App() {
@@ -65,6 +91,9 @@ export default function App() {
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
         <Route path="/signup" element={<Navigate to="/register" replace />} />
+
+        {/* First-time Onboarding Route */}
+        <Route path="/onboarding" element={<OnboardingRoute><Onboarding /></OnboardingRoute>} />
 
         {/* Protected Dashboard & Application Routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

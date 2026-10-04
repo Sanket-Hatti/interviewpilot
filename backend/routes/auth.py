@@ -80,7 +80,38 @@ def get_current_user():
     return jsonify({"success": True, "user": user.to_dict()}), 200
 
 
+@auth_bp.route("/onboarding", methods=["POST", "PUT"])
+@jwt_required()
+def update_onboarding():
+    user_id = int(get_jwt_identity())
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"success": False, "errors": ["User not found."]}), 404
+
+    data = request.get_json(silent=True) or {}
+
+    if "career_goal" in data:
+        user.career_goal = (data["career_goal"] or "").strip() or None
+    if "target_role" in data:
+        user.target_role = (data["target_role"] or "").strip() or None
+    if "target_company" in data:
+        user.target_company = (data["target_company"] or "").strip() or None
+    if "resume_id" in data:
+        user.resume_id = data["resume_id"]
+    if "onboarding_completed" in data:
+        user.onboarding_completed = bool(data["onboarding_completed"])
+
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "Onboarding profile updated successfully.",
+        "user": user.to_dict()
+    }), 200
+
+
 @auth_bp.route("/logout", methods=["POST"])
 @jwt_required()
 def logout():
     return jsonify({"success": True, "message": "Logged out successfully."}), 200
+

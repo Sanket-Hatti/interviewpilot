@@ -16,9 +16,13 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(form.email, form.password);
+      const data = await login(form.email, form.password);
       toast.success("Welcome back!");
-      navigate("/dashboard");
+      if (data?.user && !data.user.onboarding_completed) {
+        navigate("/onboarding");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
       const msgs = err.response?.data?.errors || [
         !err.response ? "Unable to connect to server. Please ensure backend is running." : "Login failed. Please check your credentials."
