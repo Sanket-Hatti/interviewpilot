@@ -20,7 +20,9 @@ export default function Login() {
       toast.success("Welcome back!");
       navigate("/dashboard");
     } catch (err) {
-      const msgs = err.response?.data?.errors || ["Login failed. Please try again."];
+      const msgs = err.response?.data?.errors || [
+        !err.response ? "Unable to connect to server. Please ensure backend is running." : "Login failed. Please check your credentials."
+      ];
       msgs.forEach(m => toast.error(m));
     } finally {
       setLoading(false);

@@ -13,4 +13,7 @@ def init_db(app):
         import models.company
         import models.dsa
         import models.chat
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception as e:
+            app.logger.warning(f"Database connection warning on startup: {e}")

@@ -76,6 +76,10 @@ def create_app(env: str = "development") -> Flask:
     def server_error(e):
         return jsonify({"success": False, "errors": ["Internal server error."]}), 500
 
+    @app.errorhandler(503)
+    def service_unavailable(e):
+        return jsonify({"success": False, "errors": ["Service temporarily unavailable. Please try again."]}), 503
+
     return app
 
 
