@@ -3,6 +3,13 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
 import CommandPalette from "./components/CommandPalette";
+import PublicLayout from "./components/PublicLayout";
+
+import Home from "./pages/Home";
+import Features from "./pages/Features";
+import HowItWorks from "./pages/HowItWorks";
+import Pricing from "./pages/Pricing";
+import About from "./pages/About";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -47,9 +54,19 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        {/* Public Marketing Routes */}
+        <Route path="/" element={<PublicLayout><Home /></PublicLayout>} />
+        <Route path="/features" element={<PublicLayout><Features /></PublicLayout>} />
+        <Route path="/how-it-works" element={<PublicLayout><HowItWorks /></PublicLayout>} />
+        <Route path="/pricing" element={<PublicLayout><Pricing /></PublicLayout>} />
+        <Route path="/about" element={<PublicLayout><About /></PublicLayout>} />
+
+        {/* Authentication Routes */}
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+        <Route path="/signup" element={<Navigate to="/register" replace />} />
+
+        {/* Protected Dashboard & Application Routes */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/resume" element={<ProtectedRoute><ResumeAnalyzer /></ProtectedRoute>} />
         <Route path="/roles" element={<ProtectedRoute><RoleMatch /></ProtectedRoute>} />
@@ -57,8 +74,11 @@ export default function App() {
         <Route path="/interview" element={<ProtectedRoute><MockInterview /></ProtectedRoute>} />
         <Route path="/code" element={<ProtectedRoute><CodePlayground /></ProtectedRoute>} />
         <Route path="/companies" element={<ProtectedRoute><CompanyPrep /></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>
   );
 }
+
