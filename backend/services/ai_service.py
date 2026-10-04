@@ -9,10 +9,10 @@ load_dotenv()
 API_KEY = os.getenv("GROQ_API_KEY", "")
 MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-client = Groq(api_key=API_KEY)
+client = Groq(api_key=API_KEY, timeout=8.0)
 
 
-def _call_groq(prompt: str, retries: int = 3) -> str:
+def _call_groq(prompt: str, retries: int = 2) -> str:
     """Call Groq with retry logic."""
     for attempt in range(retries):
         try:
@@ -90,6 +90,66 @@ Return ONLY the improved bullet point, nothing else."""
     return _call_groq(prompt)
 
 
+def _generate_deterministic_roadmap(target_role: str, missing_skills: list, weekly_hours: int, duration_weeks: int) -> dict:
+    """Deterministic fallback roadmap generator based on actual detected gaps."""
+    clean_skills = [s.strip() for s in missing_skills if s and s.strip()]
+    if not clean_skills:
+        clean_skills = ["Core Algorithms & Data Structures", "System Design & Architecture", "Database Optimization", "Mock Interview Simulation"]
+
+    weeks = []
+    # Distribute skills across weeks
+    num_skills = len(clean_skills)
+    for w in range(1, duration_weeks + 1):
+        if w == duration_weeks:
+            # Final week is always integration + mock interview
+            primary_topic = "Full-Scale Mock Interview & Final Architecture Review"
+            topics = [
+                f"{target_role} Technical System Design Drill",
+                "STAR Behavioral Technique Review",
+                "Live Coding Simulation & Time-bound Debugging",
+                "Final Readiness Assessment"
+            ]
+            mini_proj = f"End-to-End {target_role} Capstone System with documentation and automated tests"
+        else:
+            skill_idx = (w - 1) % num_skills
+            skill = clean_skills[skill_idx]
+            primary_topic = f"{skill} Mastery & Real-World Application"
+            topics = [
+                f"{skill} Core Syntax, Internal Mechanics & Edge Cases",
+                f"Production Patterns & Best Practices in {skill}",
+                f"Common {skill} Technical Interview Questions & Trap Scenarios",
+                f"Optimizing Performance & Scalability with {skill}"
+            ]
+            mini_proj = f"Hands-on {skill} micro-project demonstrating production-grade patterns"
+
+        weeks.append({
+            "week": w,
+            "title": f"Week {w}: {primary_topic}",
+            "topics": topics,
+            "resources": [
+                f"Official {target_role} & Language Documentation",
+                "High-Yield Interview Problem Sets & Case Studies",
+                "System Design Engineering Primer"
+            ],
+            "tasks": [
+                f"Dedicate {weekly_hours // 2} hours to deep conceptual study and architecture patterns",
+                f"Complete 5 targeted practice problems focusing on {topics[0]}",
+                f"Build out the weekly milestone: {mini_proj}",
+                "Review code quality, edge cases, and algorithmic complexity"
+            ],
+            "mini_project": mini_proj
+        })
+
+    overview = (
+        f"A targeted {duration_weeks}-week curriculum designed for {target_role}, specifically prioritized "
+        f"around your detected skill gaps ({', '.join(clean_skills[:4])}). Structured for {weekly_hours} hours of focused practice per week."
+    )
+    return {
+        "overview": overview,
+        "weeks": weeks
+    }
+
+
 def generate_roadmap(target_role: str, missing_skills: list, weekly_hours: int, duration_weeks: int) -> dict:
     skills_str = ", ".join(missing_skills) if missing_skills else "core software development skills"
     prompt = f"""Create a {duration_weeks}-week learning roadmap for a {target_role} position.
@@ -113,11 +173,16 @@ Return ONLY a JSON object, no explanation, no markdown:
 
 Generate all {duration_weeks} weeks."""
 
-    raw = _call_groq(prompt)
     try:
-        return _parse_json(raw)
-    except json.JSONDecodeError:
-        return {"overview": "Roadmap generated successfully.", "weeks": [], "raw": raw}
+        raw = _call_groq(prompt)
+        parsed = _parse_json(raw)
+        if isinstance(parsed, dict) and parsed.get("weeks") and len(parsed["weeks"]) > 0:
+            return parsed
+    except Exception:
+        pass
+
+    # High-quality fallback based on detected skill gaps
+    return _generate_deterministic_roadmap(target_role, missing_skills, weekly_hours, duration_weeks)
 
 
 DEFAULT_QUESTIONS = {

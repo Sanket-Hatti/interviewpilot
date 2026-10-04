@@ -63,12 +63,51 @@ export default function ResumeAnalyzer() {
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState(0);
   const [result, setResult] = useState(null);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [bullet, setBullet] = useState("");
   const [improved, setImproved] = useState("");
   const [improving, setImproving] = useState(false);
   const [copied, setCopied] = useState(false);
   const inputRef = useRef();
+
+  // Auto-load candidate profile if previously analyzed
+  useEffect(() => {
+    let active = true;
+    api.get("/api/resume/profile")
+      .then((res) => {
+        if (active && res.data?.has_profile && res.data?.profile) {
+          const p = res.data.profile;
+          setResult({
+            resume_score: p.resume_score || 0,
+            extracted_skills: p.skills || [],
+            projects: p.projects || [],
+            experience: p.experience || [],
+            education: p.education || [],
+            strengths: p.strengths || [],
+            weaknesses: p.areas_to_improve || p.weaknesses || [],
+            profile_summary: p.profile_summary || "",
+            programming_languages: p.programming_languages || [],
+            frameworks: p.frameworks || [],
+            databases: p.databases || [],
+            cloud_technologies: p.cloud_technologies || [],
+            score_breakdown: p.score_breakdown || {
+              keywords: 25,
+              impact: 22,
+              structure: 20,
+              brevity: 17
+            },
+            role_matches: p.role_matches || []
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setInitialLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
 
   const handleFile = (f) => {
     if (!f) return;
@@ -93,19 +132,29 @@ export default function ResumeAnalyzer() {
   const analyze = async () => {
     if (!file) return;
     setLoading(true);
+    setAnalysisStep(1);
+
+    const stepInterval = setInterval(() => {
+      setAnalysisStep((prev) => (prev < 3 ? prev + 1 : prev));
+    }, 900);
+
     const form = new FormData();
     form.append("file", file);
     try {
       const res = await api.post("/api/resume/analyze", form, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+      clearInterval(stepInterval);
+      setAnalysisStep(3);
       setResult(res.data);
-      toast.success("ATS Analysis completed successfully!");
+      toast.success("Resume analyzed and Candidate Profile updated!");
     } catch (err) {
+      clearInterval(stepInterval);
       const msgs = err.response?.data?.errors || ["Analysis failed. Please try again."];
       msgs.forEach((m) => toast.error(m));
     } finally {
       setLoading(false);
+      setAnalysisStep(0);
     }
   };
 
@@ -222,6 +271,7 @@ export default function ResumeAnalyzer() {
               <div className="mt-4 flex items-center justify-end gap-3">
                 <button
                   onClick={() => setFile(null)}
+                  disabled={loading}
                   className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white text-xs font-medium"
                 >
                   Cancel
@@ -234,7 +284,7 @@ export default function ResumeAnalyzer() {
                   {loading ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Extracting Taxonomies…</span>
+                      <span>Analyzing Resume…</span>
                     </>
                   ) : (
                     <>
@@ -243,6 +293,36 @@ export default function ResumeAnalyzer() {
                     </>
                   )}
                 </button>
+              </div>
+            )}
+
+            {/* Multi-step loading progress */}
+            {loading && (
+              <div className="mt-6 card p-5 border-indigo-500/30 bg-indigo-950/20 space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <RefreshCw className="w-4 h-4 text-indigo-400 animate-spin" />
+                  <span className="text-xs font-bold text-white uppercase tracking-wider">Analyzing your resume...</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1">
+                  <div className={`p-2.5 rounded-xl border flex items-center gap-2 ${
+                    analysisStep >= 1 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-slate-900 border-slate-800 text-slate-500"
+                  }`}>
+                    {analysisStep > 1 ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> : <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />}
+                    <span>1. Extracting skills</span>
+                  </div>
+                  <div className={`p-2.5 rounded-xl border flex items-center gap-2 ${
+                    analysisStep >= 2 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-slate-900 border-slate-800 text-slate-500"
+                  }`}>
+                    {analysisStep > 2 ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> : <span className="w-2 h-2 rounded-full bg-slate-600" />}
+                    <span>2. Identifying projects</span>
+                  </div>
+                  <div className={`p-2.5 rounded-xl border flex items-center gap-2 ${
+                    analysisStep >= 3 ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300" : "bg-slate-900 border-slate-800 text-slate-500"
+                  }`}>
+                    {analysisStep >= 3 ? <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" /> : <span className="w-2 h-2 rounded-full bg-slate-600" />}
+                    <span>3. Building profile</span>
+                  </div>
+                </div>
               </div>
             )}
           </motion.div>
@@ -256,27 +336,53 @@ export default function ResumeAnalyzer() {
               animate={{ opacity: 1, y: 0 }}
               className="space-y-6"
             >
-              {/* Action Bar */}
-              <div className="flex items-center justify-between bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-                    <FileText className="w-4 h-4" />
+              {/* Top Banner Action Bar & Role Match CTA */}
+              <div className="p-6 rounded-3xl bg-gradient-to-r from-indigo-950/60 via-purple-950/30 to-slate-900 border border-indigo-500/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-semibold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Candidate Profile Ready</span>
                   </div>
-                  <span className="text-xs font-medium text-slate-300">
-                    Audit Complete · <strong className="text-white">{result.extracted_skills?.length || 0} skills detected</strong>
-                  </span>
+                  <h3 className="text-xl font-extrabold text-white tracking-tight">
+                    Benchmark Profile Against Job Requirements
+                  </h3>
+                  <p className="text-slate-300 text-xs sm:text-sm max-w-xl">
+                    Compare your verified skills and experience against specific job descriptions to discover match percentages and isolated skill gaps.
+                  </p>
                 </div>
-                <button
-                  onClick={() => {
-                    setResult(null);
-                    setFile(null);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Analyze Another</span>
-                </button>
+
+                <div className="flex items-center gap-3 shrink-0">
+                  <button
+                    onClick={() => {
+                      setResult(null);
+                      setFile(null);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Re-upload</span>
+                  </button>
+                  <Link
+                    to="/roles"
+                    className="btn-primary flex items-center gap-2 px-5 py-2.5 text-xs sm:text-sm font-bold shadow-lg shadow-indigo-500/25"
+                  >
+                    <span>Continue to Role Match</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
               </div>
+
+              {/* Profile Summary if present */}
+              {result.profile_summary && (
+                <div className="card p-5 space-y-2 border-l-4 border-l-indigo-500">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Profile Summary
+                  </h4>
+                  <p className="text-slate-200 text-xs sm:text-sm leading-relaxed">
+                    {result.profile_summary}
+                  </p>
+                </div>
+              )}
 
               {/* Score + Breakdown Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -284,7 +390,7 @@ export default function ResumeAnalyzer() {
                 {/* Score Gauge */}
                 <div className="card flex flex-col items-center justify-center text-center p-6 space-y-4">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
-                    ATS Readiness Rating
+                    Overall Resume Score
                   </h3>
                   <ScoreRing score={result.resume_score} />
                   <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
@@ -339,18 +445,61 @@ export default function ResumeAnalyzer() {
               </div>
 
               {/* Detected Skills Cloud */}
-              <div className="card p-6 space-y-3">
+              <div className="card p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Target className="w-4 h-4 text-indigo-400" />
                     <h3 className="text-sm font-bold uppercase tracking-wider text-white">
-                      Verified Technical Skills
+                      Skills Detected ({result.extracted_skills?.length || 0})
                     </h3>
                   </div>
-                  <span className="text-xs text-slate-400 font-medium">
-                    {result.extracted_skills?.length || 0} extracted
-                  </span>
                 </div>
+
+                {/* Categorized taxonomies if present */}
+                {(result.programming_languages?.length > 0 || result.frameworks?.length > 0 || result.databases?.length > 0 || result.cloud_technologies?.length > 0) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pb-3 border-b border-slate-800/80">
+                    {result.programming_languages?.length > 0 && (
+                      <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 space-y-1.5">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Languages</span>
+                        <div className="flex flex-wrap gap-1">
+                          {result.programming_languages.map(s => (
+                            <span key={s} className="px-2 py-0.5 rounded-md text-[10px] bg-indigo-500/15 text-indigo-300 font-medium">{s}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {result.frameworks?.length > 0 && (
+                      <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 space-y-1.5">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Frameworks</span>
+                        <div className="flex flex-wrap gap-1">
+                          {result.frameworks.map(s => (
+                            <span key={s} className="px-2 py-0.5 rounded-md text-[10px] bg-purple-500/15 text-purple-300 font-medium">{s}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {result.databases?.length > 0 && (
+                      <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 space-y-1.5">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Databases</span>
+                        <div className="flex flex-wrap gap-1">
+                          {result.databases.map(s => (
+                            <span key={s} className="px-2 py-0.5 rounded-md text-[10px] bg-emerald-500/15 text-emerald-300 font-medium">{s}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {result.cloud_technologies?.length > 0 && (
+                      <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 space-y-1.5">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Cloud & Infra</span>
+                        <div className="flex flex-wrap gap-1">
+                          {result.cloud_technologies.map(s => (
+                            <span key={s} className="px-2 py-0.5 rounded-md text-[10px] bg-cyan-500/15 text-cyan-300 font-medium">{s}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="flex flex-wrap gap-2 pt-1">
                   {result.extracted_skills?.length ? (
@@ -370,15 +519,14 @@ export default function ResumeAnalyzer() {
                 </div>
               </div>
 
-              {/* Strengths & Weaknesses */}
+              {/* Strengths & Areas to Improve */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Strengths */}
+                {/* Resume Strengths */}
                 <div className="card p-6 space-y-3 border-l-4 border-l-emerald-500">
                   <div className="flex items-center gap-2 text-emerald-400">
                     <CheckCircle2 className="w-4 h-4" />
                     <h3 className="text-sm font-bold uppercase tracking-wider text-white">
-                      Key Strengths
+                      Resume Strengths
                     </h3>
                   </div>
                   <ul className="space-y-2">
@@ -391,12 +539,12 @@ export default function ResumeAnalyzer() {
                   </ul>
                 </div>
 
-                {/* Weaknesses / Opportunities */}
+                {/* Areas to Improve */}
                 <div className="card p-6 space-y-3 border-l-4 border-l-amber-500">
                   <div className="flex items-center gap-2 text-amber-400">
                     <AlertTriangle className="w-4 h-4" />
                     <h3 className="text-sm font-bold uppercase tracking-wider text-white">
-                      Recommended Improvements
+                      Areas to Improve
                     </h3>
                   </div>
                   <ul className="space-y-2">
@@ -408,7 +556,6 @@ export default function ResumeAnalyzer() {
                     ))}
                   </ul>
                 </div>
-
               </div>
 
               {/* Extracted Experience & Projects */}
@@ -417,15 +564,19 @@ export default function ResumeAnalyzer() {
                   <div className="flex items-center gap-2 text-indigo-400">
                     <Briefcase className="w-4 h-4" />
                     <h3 className="text-sm font-bold uppercase tracking-wider text-white">
-                      Parsed Experience Items
+                      Experience
                     </h3>
                   </div>
                   <ul className="space-y-2 text-xs text-slate-300">
-                    {(result.experience || []).slice(0, 6).map((item, idx) => (
-                      <li key={idx} className="p-2.5 rounded-lg bg-slate-950/40 border border-slate-800/60 leading-relaxed">
-                        {item}
-                      </li>
-                    ))}
+                    {(result.experience || []).length > 0 ? (
+                      result.experience.slice(0, 6).map((item, idx) => (
+                        <li key={idx} className="p-2.5 rounded-lg bg-slate-950/40 border border-slate-800/60 leading-relaxed">
+                          {item}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-slate-500 italic p-2">No past work experience listed.</li>
+                    )}
                   </ul>
                 </div>
 
@@ -433,17 +584,57 @@ export default function ResumeAnalyzer() {
                   <div className="flex items-center gap-2 text-indigo-400">
                     <FolderGit2 className="w-4 h-4" />
                     <h3 className="text-sm font-bold uppercase tracking-wider text-white">
-                      Parsed Projects
+                      Projects
                     </h3>
                   </div>
                   <ul className="space-y-2 text-xs text-slate-300">
-                    {(result.projects || []).slice(0, 6).map((item, idx) => (
+                    {(result.projects || []).length > 0 ? (
+                      result.projects.slice(0, 6).map((item, idx) => (
+                        <li key={idx} className="p-2.5 rounded-lg bg-slate-950/40 border border-slate-800/60 leading-relaxed">
+                          {item}
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-slate-500 italic p-2">No projects explicitly parsed.</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Education section if detected */}
+              {(result.education || []).length > 0 && (
+                <div className="card p-6 space-y-3">
+                  <div className="flex items-center gap-2 text-indigo-400">
+                    <GraduationCap className="w-4 h-4" />
+                    <h3 className="text-sm font-bold uppercase tracking-wider text-white">
+                      Education
+                    </h3>
+                  </div>
+                  <ul className="space-y-2 text-xs text-slate-300">
+                    {result.education.map((item, idx) => (
                       <li key={idx} className="p-2.5 rounded-lg bg-slate-950/40 border border-slate-800/60 leading-relaxed">
                         {item}
                       </li>
                     ))}
                   </ul>
                 </div>
+              )}
+
+              {/* Bottom CTA to Continue to Role Match */}
+              <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-white font-bold text-base">Proceed to Target Role Comparison</h4>
+                  <p className="text-slate-400 text-xs">
+                    See how your verified skills match against job descriptions and isolate exact missing competencies.
+                  </p>
+                </div>
+                <Link
+                  to="/roles"
+                  className="btn-primary flex items-center gap-2 px-6 py-2.5 text-xs sm:text-sm font-bold shadow-lg shadow-indigo-500/20 shrink-0"
+                >
+                  <span>Continue to Role Match</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
               </div>
 
             </motion.div>

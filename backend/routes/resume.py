@@ -75,6 +75,30 @@ def analyze():
         weaknesses=result["weaknesses"],
     )
     db.session.add(analysis)
+
+    # Save or update CandidateProfile record
+    from models.candidate import CandidateProfile
+    from models.user import User
+    
+    profile = CandidateProfile.query.filter_by(user_id=user_id).first()
+    if not profile:
+        profile = CandidateProfile(user_id=user_id)
+        db.session.add(profile)
+
+    profile.resume_id = resume.id
+    profile.skills = result["extracted_skills"]
+    profile.projects = result["projects"]
+    profile.experience = result["experience"]
+    profile.education = result["education"]
+    profile.strengths = result["strengths"]
+    profile.weaknesses = result["weaknesses"]
+    profile.resume_score = result["resume_score"]
+    profile.raw_text = result["raw_text"]
+
+    user = db.session.get(User, user_id)
+    if user:
+        user.resume_id = resume.id
+
     db.session.commit()
 
     # Auto-run role matching with extracted skills
@@ -94,6 +118,45 @@ def analyze():
         "weaknesses": result["weaknesses"],
         "score_breakdown": result["score_breakdown"],
         "role_matches": role_matches[:5],
+        "profile": profile.to_dict()
+    }), 200
+
+
+@resume_bp.route("/profile", methods=["GET"])
+@jwt_required()
+def get_candidate_profile():
+    from models.candidate import CandidateProfile
+    user_id = int(get_jwt_identity())
+    profile = CandidateProfile.query.filter_by(user_id=user_id).first()
+
+    # Backfill profile from latest Resume & Analysis if not yet in CandidateProfile
+    if not profile:
+        latest_resume = Resume.query.filter_by(user_id=user_id).order_by(Resume.uploaded_at.desc()).first()
+        if latest_resume:
+            latest_analysis = Analysis.query.filter_by(resume_id=latest_resume.id).order_by(Analysis.analyzed_at.desc()).first()
+            if latest_analysis:
+                profile = CandidateProfile(
+                    user_id=user_id,
+                    resume_id=latest_resume.id,
+                    skills=latest_analysis.extracted_skills or [],
+                    projects=latest_analysis.projects or [],
+                    experience=latest_analysis.experience or [],
+                    education=latest_analysis.education or [],
+                    strengths=latest_analysis.strengths or [],
+                    weaknesses=latest_analysis.weaknesses or [],
+                    resume_score=latest_analysis.resume_score or 0.0,
+                    raw_text=latest_resume.raw_text
+                )
+                db.session.add(profile)
+                db.session.commit()
+
+    if not profile:
+        return jsonify({"success": True, "has_profile": False, "profile": None}), 200
+
+    return jsonify({
+        "success": True,
+        "has_profile": True,
+        "profile": profile.to_dict()
     }), 200
 
 

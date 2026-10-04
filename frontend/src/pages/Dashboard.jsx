@@ -42,14 +42,17 @@ export default function Dashboard() {
   });
 
   const [recentInterviews, setRecentInterviews] = useState([]);
+  const [activeJobTarget, setActiveJobTarget] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [resumesRes, interviewsRes, roadmapsRes] = await Promise.allSettled([
+        const [resumesRes, interviewsRes, roadmapsRes, rolesRes, profileRes] = await Promise.allSettled([
           api.get("/api/resume/history"),
           api.get("/api/interview/history"),
-          api.get("/api/roadmap/history")
+          api.get("/api/roadmap/history"),
+          api.get("/api/roles/current"),
+          api.get("/api/resume/profile")
         ]);
 
         let computedAvg = null;
@@ -94,6 +97,18 @@ export default function Dashboard() {
           }
         }
 
+        if (profileRes.status === "fulfilled" && profileRes.value.data?.has_profile) {
+          const p = profileRes.value.data.profile;
+          if (p && typeof p.resume_score === "number") {
+            setStats(prev => ({
+              ...prev,
+              hasResumeProfile: true,
+              resumeScore: Math.round(p.resume_score),
+              missingSkills: prev.missingSkills.length > 0 ? prev.missingSkills : (p.areas_to_improve || [])
+            }));
+          }
+        }
+
         if (resumesRes.status === "fulfilled" && resumesRes.value.data?.resumes?.length > 0) {
           const latestResume = resumesRes.value.data.resumes[0];
           const latest = latestResume?.analysis;
@@ -101,6 +116,7 @@ export default function Dashboard() {
             const score = Math.round(latest.resume_score);
             setStats(prev => ({
               ...prev,
+              hasResumeProfile: true,
               resumeScore: score,
               resumeDate: latestResume.uploaded_at
             }));
@@ -113,13 +129,26 @@ export default function Dashboard() {
                   setStats(prev => ({
                     ...prev,
                     bestRole: bm.role_name,
-                    roleMatchPct: Math.round(bm.match_percentage),
+                    roleMatchPct: prev.roleMatchPct ?? Math.round(bm.match_percentage),
                     codingScore: Math.round(bm.match_percentage),
-                    missingSkills: bm.missing_skills || []
+                    missingSkills: prev.missingSkills.length > 0 ? prev.missingSkills : (bm.missing_skills || [])
                   }));
                 }
               } catch (_) {}
             }
+          }
+        }
+
+        if (rolesRes.status === "fulfilled" && rolesRes.value.data?.has_target) {
+          const jt = rolesRes.value.data.job_target;
+          setActiveJobTarget(jt);
+          if (jt) {
+            setStats(prev => ({
+              ...prev,
+              bestRole: jt.target_role || prev.bestRole,
+              roleMatchPct: typeof jt.match_score === "number" ? Math.round(jt.match_score) : prev.roleMatchPct,
+              missingSkills: (jt.missing_skills && jt.missing_skills.length > 0) ? jt.missing_skills : prev.missingSkills,
+            }));
           }
         }
 
@@ -153,14 +182,17 @@ export default function Dashboard() {
 
   // Contextual primary CTA
   const primaryCTA = useMemo(() => {
-    if (stats.resumeScore === null) {
+    if (stats.resumeScore === null && !stats.hasResumeProfile) {
       return { label: "Upload Resume", to: "/resume" };
     }
     if (stats.roleMatchPct === null) {
       return { label: "Analyze Target Role", to: "/roles" };
     }
+    if (!stats.activeRoadmapRole) {
+      return { label: "Build Preparation Plan", to: "/roadmap" };
+    }
     if (stats.interviewsCompleted === 0) {
-      return { label: "Start Practice", to: "/interview" };
+      return { label: "Start Practice", to: "/code" };
     }
     return { label: "Continue Preparation", to: "/interview" };
   }, [stats]);
@@ -196,8 +228,8 @@ export default function Dashboard() {
 
   // Next Best Action (AI Recommendation Foundation - agentic ready)
   const nextBestAction = useMemo(() => {
-    return getNextBestAction({ user, stats });
-  }, [user, stats]);
+    return getNextBestAction({ user, stats, jobTarget: activeJobTarget });
+  }, [user, stats, activeJobTarget]);
 
   // Recent Activity items combined
   const recentActivity = useMemo(() => {

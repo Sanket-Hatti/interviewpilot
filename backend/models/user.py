@@ -17,11 +17,13 @@ class User(db.Model):
     created_at           = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
-    resumes       = db.relationship("Resume",      backref="user", lazy=True, cascade="all, delete-orphan")
-    roadmaps      = db.relationship("Roadmap",     backref="user", lazy=True, cascade="all, delete-orphan")
-    interviews    = db.relationship("Interview",   backref="user", lazy=True, cascade="all, delete-orphan")
-    dsa_progress  = db.relationship("DSAProgress", backref="user", lazy=True, cascade="all, delete-orphan")
-    chat_history  = db.relationship("ChatHistory", backref="user", lazy=True, cascade="all, delete-orphan")
+    resumes           = db.relationship("Resume",           backref="user", lazy=True, cascade="all, delete-orphan")
+    candidate_profile = db.relationship("CandidateProfile", backref="user", uselist=False, cascade="all, delete-orphan")
+    job_targets       = db.relationship("JobTarget",        backref="user", lazy=True, cascade="all, delete-orphan")
+    roadmaps          = db.relationship("Roadmap",          backref="user", lazy=True, cascade="all, delete-orphan")
+    interviews        = db.relationship("Interview",        backref="user", lazy=True, cascade="all, delete-orphan")
+    dsa_progress      = db.relationship("DSAProgress",      backref="user", lazy=True, cascade="all, delete-orphan")
+    chat_history      = db.relationship("ChatHistory",      backref="user", lazy=True, cascade="all, delete-orphan")
 
     def set_password(self, password: str) -> None:
         salt = bcrypt.gensalt()

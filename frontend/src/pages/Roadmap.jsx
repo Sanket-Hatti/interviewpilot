@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import api from "../utils/api";
+import { useLocation, Link } from "react-router-dom";
 import {
   Compass,
   BookOpen,
@@ -14,7 +15,9 @@ import {
   RotateCcw,
   ExternalLink,
   CheckCircle2,
-  Calendar
+  Calendar,
+  ArrowRight,
+  Code2
 } from "lucide-react";
 
 const ROLES = [
@@ -35,8 +38,9 @@ const SKILLS_BY_ROLE = {
 };
 
 export default function Roadmap() {
-  const [role, setRole] = useState("Software Engineer");
-  const [skills, setSkills] = useState([]);
+  const location = useLocation();
+  const [role, setRole] = useState(location.state?.target_role || "Software Engineer");
+  const [skills, setSkills] = useState(location.state?.missing_skills || []);
   const [custom, setCustom] = useState("");
   const [hours, setHours] = useState(15);
   const [weeks, setWeeks] = useState(8);
@@ -44,6 +48,52 @@ export default function Roadmap() {
   const [roadmap, setRoadmap] = useState(null);
   const [openWeek, setOpenWeek] = useState(0);
   const [completedTasks, setCompletedTasks] = useState({});
+
+  useEffect(() => {
+    let active = true;
+
+    // Handle auto-generation from Role Match
+    if (location.state?.autoGenerate && location.state.target_role) {
+      const autoGen = async () => {
+        setLoading(true);
+        try {
+          const res = await api.post("/api/roadmap/generate", {
+            target_role: location.state.target_role,
+            missing_skills: location.state.missing_skills || [],
+            weekly_hours: 15,
+            duration_weeks: 8,
+          });
+          if (active) {
+            setRoadmap(res.data);
+            setRole(location.state.target_role);
+            if (location.state.missing_skills) setSkills(location.state.missing_skills);
+            setOpenWeek(0);
+            toast.success("Personalized roadmap generated from your detected skill gaps!");
+          }
+        } catch {
+          if (active) toast.error("Could not auto-generate plan. You can configure below.");
+        } finally {
+          if (active) setLoading(false);
+        }
+      };
+      autoGen();
+      return;
+    }
+
+    // Otherwise load existing active roadmap
+    api.get("/api/roadmap/current")
+      .then((res) => {
+        if (active && res.data?.has_roadmap && res.data?.roadmap) {
+          const rm = res.data.roadmap;
+          setRoadmap(rm);
+          if (rm.target_role) setRole(rm.target_role);
+          if (rm.missing_skills) setSkills(rm.missing_skills);
+        }
+      })
+      .catch(() => {});
+
+    return () => { active = false; };
+  }, [location.state]);
 
   const suggestedSkills = SKILLS_BY_ROLE[role] || [];
 
@@ -285,6 +335,39 @@ export default function Roadmap() {
                 {roadmap.roadmap?.overview || "Comprehensive preparation track optimized for technical interviews."}
               </p>
             </div>
+
+            {/* Skill Gap Preparation Priorities */}
+            {roadmap.missing_skills && roadmap.missing_skills.length > 0 && (
+              <div className="card p-5 border-indigo-500/30 bg-indigo-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Your Skill Gap Priorities</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {roadmap.missing_skills.map((skill, idx) => (
+                      <span
+                        key={skill}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-semibold"
+                      >
+                        <span className="w-4 h-4 rounded-full bg-indigo-500/30 text-indigo-200 text-[10px] flex items-center justify-center font-bold">
+                          {idx + 1}
+                        </span>
+                        <span>{skill}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <Link
+                  to="/code"
+                  className="btn-primary flex items-center gap-2 px-5 py-2.5 text-xs font-bold shrink-0 self-start sm:self-auto shadow-md shadow-indigo-600/20"
+                >
+                  <Code2 className="w-3.5 h-3.5" />
+                  <span>Start Practice →</span>
+                </Link>
+              </div>
+            )}
 
             {/* Week Accordion Timeline */}
             <div className="space-y-3">

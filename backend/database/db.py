@@ -7,6 +7,7 @@ def init_db(app):
     with app.app_context():
         import models.user
         import models.resume
+        import models.candidate
         import models.role
         import models.roadmap
         import models.interview

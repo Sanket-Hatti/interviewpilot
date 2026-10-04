@@ -15,6 +15,21 @@ def generate():
 
     target_role = (data.get("target_role") or "").strip()
     missing_skills = data.get("missing_skills", [])
+
+    if not target_role or not missing_skills:
+        from models.candidate import JobTarget
+        latest_target = JobTarget.query.filter_by(user_id=user_id).order_by(JobTarget.updated_at.desc()).first()
+        if latest_target:
+            if not target_role:
+                target_role = latest_target.target_role
+            if not missing_skills and latest_target.missing_skills:
+                missing_skills = latest_target.missing_skills
+
+    if not target_role:
+        from models.user import User
+        user = db.session.get(User, user_id)
+        target_role = (user.target_role if user else None) or "Software Engineer"
+
     try:
         weekly_hours = int(data.get("weekly_hours", 10))
     except (ValueError, TypeError):
@@ -25,8 +40,6 @@ def generate():
     except (ValueError, TypeError):
         duration_weeks = 8
 
-    if not target_role:
-        return jsonify({"success": False, "errors": ["target_role is required."]}), 400
     if duration_weeks not in [4, 8, 12]:
         duration_weeks = 8
 
@@ -56,6 +69,16 @@ def generate():
     }), 200
 
 
+@roadmap_bp.route("/current", methods=["GET"])
+@jwt_required()
+def get_current_roadmap():
+    user_id = int(get_jwt_identity())
+    roadmap = Roadmap.query.filter_by(user_id=user_id).order_by(Roadmap.created_at.desc()).first()
+    if not roadmap:
+        return jsonify({"success": True, "has_roadmap": False, "roadmap": None}), 200
+    return jsonify({"success": True, "has_roadmap": True, "roadmap": roadmap.to_dict()}), 200
+
+
 @roadmap_bp.route("/history", methods=["GET"])
 @jwt_required()
 def history():
@@ -72,3 +95,4 @@ def get_roadmap(roadmap_id):
     if not roadmap:
         return jsonify({"success": False, "errors": ["Roadmap not found."]}), 404
     return jsonify({"success": True, "roadmap": roadmap.to_dict()}), 200
+

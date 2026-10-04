@@ -22,6 +22,7 @@ class Roadmap(db.Model):
             "weekly_hours":   self.weekly_hours,
             "duration_weeks": self.duration_weeks,
             "roadmap_data":   self.roadmap_data,
+            "roadmap":        self.roadmap_data,
             "completion_pct": self.completion_pct,
             "created_at":     self.created_at.isoformat() if self.created_at else None
         }
