@@ -72,6 +72,16 @@ app.include_router(interview_router)
 app.include_router(companies_router)
 app.include_router(code_router)
 
+@app.get("/", tags=["Root"])
+def root():
+    return {
+        "name": "InterviewPilot API",
+        "version": "3.0.0",
+        "status": "online",
+        "docs_url": "/docs",
+        "health_url": "/api/health"
+    }
+
 @app.get("/api/health", tags=["Health"])
 def health():
     return {"status": "ok", "version": "3.0.0", "framework": "FastAPI"}
