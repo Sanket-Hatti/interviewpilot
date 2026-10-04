@@ -3,19 +3,10 @@ import { useAuth } from "../context/AuthContext";
 import { Link } from "react-router-dom";
 import api from "../utils/api";
 import {
-  Sparkles,
   ArrowRight,
   Mic,
   Code2,
-  FileText,
-  Target,
-  Compass,
-  CheckCircle2,
-  TrendingUp,
-  Clock,
-  Building2,
-  ChevronRight,
-  RotateCcw
+  FileText
 } from "lucide-react";
 
 function formatRelativeTime(dateString) {
@@ -187,10 +178,10 @@ export default function Dashboard() {
     return Math.round(parts.reduce((a, b) => a + b, 0) / parts.length);
   }, [hasAnyData, stats]);
 
-  // Readiness coaching insight text
+  // Dynamic coaching insight text when data exists
   const coachingInsight = useMemo(() => {
     if (!hasAnyData) {
-      return "Complete your first practice session or resume scan to calculate readiness.";
+      return "Upload your resume and complete your first practice session to calculate your readiness.";
     }
     if (stats.missingSkills.length > 0) {
       const topSkill = stats.missingSkills[0];
@@ -202,59 +193,65 @@ export default function Dashboard() {
     return "Strong technical foundation. Focus on high-difficulty behavioral and live coding scenarios.";
   }, [hasAnyData, stats]);
 
-  // Next Best Action (Hero recommendation card)
+  // Next Best Action (AI Recommendation Foundation - agentic ready)
   const nextBestAction = useMemo(() => {
     if (stats.resumeScore === null) {
       return {
-        badge: "Recommended Step",
-        title: "Upload Resume for ATS Diagnostic",
-        description: "Upload your PDF resume to extract skills, evaluate keyword match rates, and get tailored recommendations.",
-        cta: "Upload Resume",
+        title: "Start with your resume",
+        description: "Upload your resume so InterviewPilot can understand your skills and create your personalized preparation plan.",
+        cta: "Analyze my resume →",
         to: "/resume"
       };
     }
     if (stats.roleMatchPct === null) {
       return {
-        badge: "Recommended Step",
-        title: "Benchmark Target Role Fit",
-        description: "Match your extracted skills against 9 tech industry roles to discover skill dependencies and missing requirements.",
-        cta: "Analyze Role Fit",
+        title: "Complete your target-role analysis",
+        description: "Match your extracted skills against 9 industry roles to benchmark requirements and discover dependencies.",
+        cta: "Analyze role fit →",
         to: "/roles"
       };
     }
     if (stats.missingSkills.length > 0) {
       const skill = stats.missingSkills[0];
+      const isAws = skill.toLowerCase().includes("aws");
+      const isSql = skill.toLowerCase().includes("sql");
+      const title = isAws ? "Improve your AWS fundamentals" : isSql ? "Strengthen SQL JOINs" : `Strengthen ${skill}`;
+
       return {
-        badge: "Skill Focus",
-        title: `Improve ${skill}`,
-        description: `Your benchmark for ${stats.bestRole || "your target role"} shows ${skill} is currently an identified skill gap. Practice questions to close this gap.`,
-        cta: "Start Practice",
+        title,
+        description: `Your benchmark for ${stats.bestRole || "your target role"} shows ${skill} is currently an identified skill gap. Practice to close this gap.`,
+        cta: "Start practice →",
         to: "/code"
       };
     }
     if (stats.interviewsCompleted === 0) {
       return {
-        badge: "Simulation",
-        title: "Take Your First Mock Interview",
-        description: "Complete your first practice session to get personalized rubric evaluations and benchmark your communication.",
-        cta: "Start Practice",
+        title: "Complete your first practice session",
+        description: "Take a baseline simulation to benchmark technical knowledge, communication, and STAR-format responses.",
+        cta: "Start interview →",
+        to: "/interview"
+      };
+    }
+    if (stats.behavioralScore !== null && stats.technicalScore !== null && stats.behavioralScore < stats.technicalScore) {
+      return {
+        title: "Practice behavioral questions",
+        description: "Sharpen structured storytelling using the STAR framework to raise your communication evaluation score.",
+        cta: "Practice behavioral →",
         to: "/interview"
       };
     }
     if (stats.avgInterviewScore !== null && stats.avgInterviewScore < 80) {
       return {
-        badge: "Score Acceleration",
-        title: "Refine Technical Explanations",
-        description: `Your recent practice average is ${stats.avgInterviewScore}%. Take another session to sharpen structured delivery and STAR responses.`,
-        cta: "Practice Again",
+        title: "Refine technical explanations",
+        description: `Your recent practice average is ${stats.avgInterviewScore}%. Take another session to sharpen structured delivery and technical depth.`,
+        cta: "Practice again →",
         to: "/interview"
       };
     }
     return {
-      badge: "Target Companies",
-      title: "Explore Company Preparation Tracks",
+      title: "Explore target company tracks",
       description: "Review specific interview formats, question patterns, and prep playbooks for American Express, TCS, Infosys, and more.",
-      cta: "Explore Tracks",
+      cta: "Explore tracks →",
       to: "/companies"
     };
   }, [stats]);
@@ -288,15 +285,15 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#0b0f17] text-zinc-100 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-5xl mx-auto space-y-7">
+      <div className="max-w-5xl mx-auto space-y-5">
 
-        {/* ── 1. HEADER ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800/60 pb-5">
+        {/* ── 1. COMPACT HEADER ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800/60 pb-3.5">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
               {greeting}, {firstName} 👋
             </h1>
-            <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+            <p className="text-xs sm:text-sm text-zinc-400 mt-0.5">
               Here's your interview preparation progress and what to focus on next.
             </p>
           </div>
@@ -304,128 +301,139 @@ export default function Dashboard() {
           <div>
             <Link
               to={primaryCTA.to}
-              className="btn-primary inline-flex items-center gap-2 text-xs sm:text-sm font-semibold px-4 py-2"
+              className="btn-primary inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold px-4 py-2"
             >
               <span>{primaryCTA.label}</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
 
-        {/* ── 2. READINESS OVERVIEW ── */}
-        <div className="card p-6 sm:p-7 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1.5">
-              <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
+        {/* ── 2. COMPACT READINESS SECTION ── */}
+        <div className="rounded-xl bg-zinc-900/40 border border-zinc-800/70 p-4 sm:p-5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div className="space-y-1">
+              <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
                 Interview Readiness
               </span>
-              <div className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                 {compositeReadiness !== null ? `${compositeReadiness}%` : "—"}
               </div>
-              <p className="text-xs sm:text-sm text-zinc-300 max-w-xl">
+              <p className="text-xs text-zinc-400 max-w-xl leading-relaxed">
                 {coachingInsight}
               </p>
+              {compositeReadiness === null && (
+                <div className="pt-1">
+                  <Link
+                    to="/resume"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
+                  >
+                    <span>Get started →</span>
+                  </Link>
+                </div>
+              )}
             </div>
 
             {compositeReadiness !== null && (
-              <div className="hidden sm:block shrink-0">
-                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              <div className="shrink-0 pt-0.5">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                   {compositeReadiness >= 75 ? "Interview Ready" : compositeReadiness >= 55 ? "Progressing Well" : "Needs Practice"}
                 </span>
               </div>
             )}
           </div>
 
-          {/* Clean Progress Indicator Bar */}
-          <div className="w-full bg-zinc-800/80 h-2 rounded-full overflow-hidden">
-            <div
-              className="bg-indigo-500 h-full rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${compositeReadiness || 0}%` }}
-            />
-          </div>
+          {/* Progress Indicator Bar (shown when score exists) */}
+          {compositeReadiness !== null && (
+            <div className="w-full bg-zinc-800/80 h-1.5 rounded-full overflow-hidden">
+              <div
+                className="bg-indigo-500 h-full rounded-full transition-all duration-700 ease-out"
+                style={{ width: `${compositeReadiness}%` }}
+              />
+            </div>
+          )}
 
-          {/* 4 Compact Lightweight Metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-zinc-800/60">
-            <div className="space-y-1">
-              <div className="text-xs text-zinc-400">Resume</div>
-              <div className="text-base sm:text-lg font-bold text-white">
+          {/* 4 Compact Lightweight Metrics with reduced vertical whitespace */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-zinc-800/60">
+            <div className="space-y-0.5">
+              <div className="text-[11px] text-zinc-400">Resume</div>
+              <div className="text-sm sm:text-base font-bold text-white">
                 {stats.resumeScore !== null ? `${stats.resumeScore}%` : "—"}
               </div>
             </div>
 
-            <div className="space-y-1">
-              <div className="text-xs text-zinc-400">Role Fit</div>
-              <div className="text-base sm:text-lg font-bold text-white">
+            <div className="space-y-0.5">
+              <div className="text-[11px] text-zinc-400">Role Fit</div>
+              <div className="text-sm sm:text-base font-bold text-white">
                 {stats.roleMatchPct !== null ? `${stats.roleMatchPct}%` : "—"}
               </div>
             </div>
 
-            <div className="space-y-1">
-              <div className="text-xs text-zinc-400">Technical</div>
-              <div className="text-base sm:text-lg font-bold text-white">
+            <div className="space-y-0.5">
+              <div className="text-[11px] text-zinc-400">Technical</div>
+              <div className="text-sm sm:text-base font-bold text-white">
                 {stats.technicalScore !== null ? `${stats.technicalScore}%` : "—"}
               </div>
             </div>
 
-            <div className="space-y-1">
-              <div className="text-xs text-zinc-400">Behavioral</div>
-              <div className="text-base sm:text-lg font-bold text-white">
+            <div className="space-y-0.5">
+              <div className="text-[11px] text-zinc-400">Behavioral</div>
+              <div className="text-sm sm:text-base font-bold text-white">
                 {stats.behavioralScore !== null ? `${stats.behavioralScore}%` : "—"}
               </div>
             </div>
           </div>
         </div>
 
-        {/* ── 3. NEXT BEST ACTION (Most Important Card) ── */}
-        <div className="relative rounded-2xl bg-gradient-to-br from-indigo-950/40 via-zinc-900/60 to-zinc-900/40 border border-indigo-500/30 p-6 sm:p-7 shadow-lg shadow-black/40">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                <Sparkles className="w-3 h-3 text-indigo-400" />
-                <span>Your next best action</span>
-              </div>
+        {/* ── 3. AI RECOMMENDATION: YOUR NEXT BEST ACTION ── */}
+        <div className="rounded-xl bg-zinc-900/40 border border-indigo-500/30 p-4 sm:p-5 space-y-2.5 relative overflow-hidden">
+          <div className="flex items-center gap-1.5 text-indigo-400 text-xs font-semibold tracking-wide">
+            <span>✦</span>
+            <span>Recommended for you</span>
+          </div>
 
-              <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
                 {nextBestAction.title}
               </h2>
 
-              <p className="text-xs sm:text-sm text-zinc-300 max-w-2xl leading-relaxed">
+              <p className="text-xs sm:text-sm text-zinc-400 max-w-2xl leading-relaxed">
                 {nextBestAction.description}
               </p>
             </div>
 
-            <div className="shrink-0">
+            <div className="shrink-0 pt-0.5 sm:pt-0">
               <Link
                 to={nextBestAction.to}
-                className="btn-primary inline-flex items-center gap-2 text-xs sm:text-sm font-semibold px-5 py-2.5 shadow-md shadow-indigo-600/20"
+                className="btn-primary inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold px-4 py-2"
               >
                 <span>{nextBestAction.cta}</span>
-                <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
           </div>
         </div>
 
         {/* ── 4 & 5. TWO COLUMN: CONTINUE PREPARATION & PROGRESS ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
 
           {/* Continue Preparation (7 cols) */}
-          <div className="lg:col-span-7 card p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
-              <h3 className="text-sm font-semibold text-white">
+          <div className="lg:col-span-7 rounded-xl bg-zinc-900/40 border border-zinc-800/70 p-4 sm:p-4.5 space-y-2.5">
+            <div className="border-b border-zinc-800/60 pb-2">
+              <h3 className="text-xs sm:text-sm font-semibold text-white">
                 Continue preparation
               </h3>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {/* Item 1: Mock Interview */}
               <Link
                 to="/interview"
-                className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/40 transition-all group"
+                className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-800/40 transition-all group"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-                    <Mic className="w-4 h-4" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-md bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+                    <Mic className="w-3.5 h-3.5" />
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-white group-hover:text-indigo-300 transition-colors">
@@ -433,26 +441,25 @@ export default function Dashboard() {
                     </div>
                     <div className="text-[11px] text-zinc-400">
                       {stats.avgInterviewScore !== null
-                        ? `Last score: ${stats.avgInterviewScore}% · 11 questions`
-                        : "Simulate technical & behavioral questions"}
+                        ? `Last score: ${stats.avgInterviewScore}%`
+                        : "Practice technical & behavioral questions"}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1 text-xs text-zinc-400 group-hover:text-indigo-300 font-medium transition-colors">
-                  <span>{stats.avgInterviewScore ? "Practice again" : "Start"}</span>
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  <span>{stats.avgInterviewScore ? "Practice again →" : "Start →"}</span>
                 </div>
               </Link>
 
               {/* Item 2: Coding Practice */}
               <Link
                 to="/code"
-                className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/40 transition-all group"
+                className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-800/40 transition-all group"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700/60 flex items-center justify-center text-zinc-300">
-                    <Code2 className="w-4 h-4" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-md bg-zinc-800 border border-zinc-700/60 flex items-center justify-center text-zinc-300 shrink-0">
+                    <Code2 className="w-3.5 h-3.5" />
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-white group-hover:text-indigo-300 transition-colors">
@@ -460,26 +467,25 @@ export default function Dashboard() {
                     </div>
                     <div className="text-[11px] text-zinc-400">
                       {stats.missingSkills.length > 0
-                        ? `Targeting ${stats.missingSkills[0]} · Big-O audit`
-                        : "Write code with real-time complexity analysis"}
+                        ? `Targeting ${stats.missingSkills[0]}`
+                        : "Live code editor with complexity audits"}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1 text-xs text-zinc-400 group-hover:text-indigo-300 font-medium transition-colors">
-                  <span>Continue</span>
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  <span>Continue →</span>
                 </div>
               </Link>
 
               {/* Item 3: Resume ATS */}
               <Link
                 to="/resume"
-                className="flex items-center justify-between p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/40 transition-all group"
+                className="flex items-center justify-between p-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-800/40 transition-all group"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-zinc-800 border border-zinc-700/60 flex items-center justify-center text-zinc-300">
-                    <FileText className="w-4 h-4" />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-md bg-zinc-800 border border-zinc-700/60 flex items-center justify-center text-zinc-300 shrink-0">
+                    <FileText className="w-3.5 h-3.5" />
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-white group-hover:text-indigo-300 transition-colors">
@@ -487,24 +493,23 @@ export default function Dashboard() {
                     </div>
                     <div className="text-[11px] text-zinc-400">
                       {stats.resumeScore !== null
-                        ? `ATS Score: ${stats.resumeScore}% · Bullet improver`
+                        ? `ATS Score: ${stats.resumeScore}%`
                         : "Upload PDF to evaluate keyword score"}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1 text-xs text-zinc-400 group-hover:text-indigo-300 font-medium transition-colors">
-                  <span>{stats.resumeScore ? "Review" : "Upload"}</span>
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  <span>{stats.resumeScore ? "Review →" : "Upload →"}</span>
                 </div>
               </Link>
             </div>
           </div>
 
           {/* Progress Breakdown (5 cols) */}
-          <div className="lg:col-span-5 card p-5 sm:p-6 space-y-4 flex flex-col justify-between">
-            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
-              <h3 className="text-sm font-semibold text-white">
+          <div className="lg:col-span-5 rounded-xl bg-zinc-900/40 border border-zinc-800/70 p-4 sm:p-4.5 space-y-3 flex flex-col justify-between">
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2">
+              <h3 className="text-xs sm:text-sm font-semibold text-white">
                 Progress
               </h3>
               <Link
@@ -516,9 +521,9 @@ export default function Dashboard() {
             </div>
 
             {/* Simple Horizontal Progress Bars */}
-            <div className="space-y-4">
+            <div className="space-y-2.5">
               {/* Technical */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-zinc-300 font-medium">Technical</span>
                   <span className="text-zinc-400 font-mono text-[11px]">
@@ -534,7 +539,7 @@ export default function Dashboard() {
               </div>
 
               {/* Behavioral */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-zinc-300 font-medium">Behavioral</span>
                   <span className="text-zinc-400 font-mono text-[11px]">
@@ -550,7 +555,7 @@ export default function Dashboard() {
               </div>
 
               {/* Coding */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-zinc-300 font-medium">Coding</span>
                   <span className="text-zinc-400 font-mono text-[11px]">
@@ -566,7 +571,7 @@ export default function Dashboard() {
               </div>
 
               {/* Resume */}
-              <div className="space-y-1.5">
+              <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-zinc-300 font-medium">Resume</span>
                   <span className="text-zinc-400 font-mono text-[11px]">
@@ -582,7 +587,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-zinc-800/60 text-center">
+            <div className="pt-1.5 border-t border-zinc-800/60 text-center">
               <Link
                 to="/roles"
                 className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors inline-flex items-center gap-1"
@@ -595,10 +600,10 @@ export default function Dashboard() {
 
         </div>
 
-        {/* ── 6. RECENT ACTIVITY ── */}
-        <div className="card p-5 sm:p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
-            <h3 className="text-sm font-semibold text-white">
+        {/* ── 6. COMPACT RECENT ACTIVITY ── */}
+        <div className="rounded-xl bg-zinc-900/40 border border-zinc-800/70 p-4 sm:p-4.5 space-y-2.5">
+          <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2">
+            <h3 className="text-xs sm:text-sm font-semibold text-white">
               Recent activity
             </h3>
             {recentActivity.length > 0 && (
@@ -617,19 +622,17 @@ export default function Dashboard() {
                 <Link
                   key={item.id}
                   to={item.to}
-                  className="flex items-center justify-between py-3 hover:px-2 rounded-lg hover:bg-zinc-800/40 transition-all group"
+                  className="flex items-center justify-between py-2 hover:px-1.5 rounded-lg hover:bg-zinc-800/30 transition-all group"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
-                    <div>
-                      <div className="text-xs sm:text-sm font-medium text-white group-hover:text-indigo-300 transition-colors">
-                        {item.title}
-                      </div>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                    <div className="text-xs sm:text-sm font-medium text-white group-hover:text-indigo-300 transition-colors">
+                      {item.title}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-200 border border-zinc-700/60">
+                    <span className="text-[11px] sm:text-xs font-semibold px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
                       {item.badge}
                     </span>
                     <span className="text-xs text-zinc-500 hidden sm:inline">
@@ -640,25 +643,27 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            <div className="py-8 text-center space-y-3">
-              <Clock className="w-7 h-7 text-zinc-600 mx-auto" />
-              <div className="text-xs sm:text-sm font-medium text-zinc-400">
-                No practice sessions yet.
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 py-1">
+              <div className="space-y-0.5">
+                <div className="text-xs sm:text-sm font-medium text-zinc-300">
+                  No practice sessions yet.
+                </div>
+                <p className="text-xs text-zinc-400">
+                  Complete your first session to start tracking progress.
+                </p>
               </div>
-              <div>
-                <Link
-                  to="/interview"
-                  className="btn-secondary text-xs inline-flex items-center gap-1.5 px-3.5 py-1.5"
-                >
-                  <span>Start your first practice</span>
-                </Link>
-              </div>
+              <Link
+                to="/interview"
+                className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-medium shrink-0 transition-colors"
+              >
+                <span>Start practice →</span>
+              </Link>
             </div>
           )}
         </div>
 
-        {/* ── 7. FOOTER (Minimal & Clean) ── */}
-        <footer className="pt-6 pb-4 border-t border-zinc-800/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500">
+        {/* ── 7. MINIMAL FOOTER ── */}
+        <footer className="pt-4 pb-2 border-t border-zinc-800/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-zinc-500">
           <div>
             <span>InterviewPilot © 2026. All rights reserved.</span>
           </div>
@@ -676,3 +681,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
