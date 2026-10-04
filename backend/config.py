@@ -4,33 +4,50 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-class Settings:
+raw_db_url = os.getenv("DATABASE_URL", "sqlite:///./interviewpilot.db")
+if raw_db_url.startswith("postgres://"):
+    raw_db_url = raw_db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+elif raw_db_url.startswith("postgresql://") and not raw_db_url.startswith("postgresql+"):
+    raw_db_url = raw_db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+class Config:
     # Database
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        "sqlite:///./interviewpilot.db"
-    )
+    DATABASE_URL = raw_db_url
+    SQLALCHEMY_DATABASE_URI = raw_db_url
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # JWT
-    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-production")
-    JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRES_HOURS: int = 24
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-production")
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
 
     # AI
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+    GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
-    # Uploads
-    MAX_CONTENT_LENGTH: int = 10 * 1024 * 1024  # 10 MB
-    UPLOAD_FOLDER: str = os.path.join(os.path.dirname(__file__), "uploads")
-    ALLOWED_EXTENSIONS: set = {"pdf"}
+    # File Upload
+    MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
+    ALLOWED_EXTENSIONS = {"pdf"}
 
     # CORS
-    CORS_ORIGINS: list[str] = [
+    CORS_ORIGINS = [
         origin.strip()
         for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
         if origin.strip()
     ]
 
-settings = Settings()
-os.makedirs(settings.UPLOAD_FOLDER, exist_ok=True)
+    # Rate Limiting
+    RATELIMIT_DEFAULT = "300 per day;60 per hour"
+    RATELIMIT_STORAGE_URL = "memory://"
+
+class DevelopmentConfig(Config):
+    DEBUG = True
+
+class ProductionConfig(Config):
+    DEBUG = False
+
+config = {
+    "development": DevelopmentConfig,
+    "production": ProductionConfig,
+    "default": DevelopmentConfig
+}

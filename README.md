@@ -38,21 +38,16 @@
 - Select role and difficulty (Easy / Medium / Hard)
 - AI generates 11 questions: 5 Technical + 3 Behavioral + 3 HR
 - Submit answers and get scored on Technical Accuracy, Communication, and Completeness
-- Detailed feedback and improvement suggestions
-
----
-
-## 🛠️ Tech Stack
+- Detailed feedback and improvem## 🛠️ Tech Stack
 
 | Layer      | Technology                                          |
 |------------|-----------------------------------------------------|
 | Frontend   | React 18, Tailwind CSS, Framer Motion, Recharts     |
-| Backend    | FastAPI, SQLAlchemy 2.0, Uvicorn, Pydantic v2       |
-| AI         | Groq API (High-speed Llama / GPT models)            |
-| NLP        | spaCy, PyMuPDF                                      |
+| Backend    | Flask, Flask-SQLAlchemy, Flask-JWT-Extended, Gunicorn |
+| AI         | Groq API (High-speed Llama models)                  |
+| NLP        | PyMuPDF                                             |
 | Database   | PostgreSQL (Neon) or SQLite (Local)                 |
-| Auth       | JWT (PyJWT) + bcrypt                                |
-| API Docs   | Interactive Swagger UI at `/docs`                   |
+| Auth       | JWT (Flask-JWT-Extended) + bcrypt                   |
 | Deploy     | Vercel (frontend) + Render / Railway (backend)      |
 
 ---
@@ -62,9 +57,10 @@
 ```
 interviewpilot/
 ├── backend/
-│   ├── main.py                 # FastAPI app entry point & CORS
-│   ├── config.py               # Environment & Settings
-│   ├── models/                 # SQLAlchemy 2.0 models
+│   ├── app.py                  # Flask application factory & blueprints
+│   ├── wsgi.py                 # Gunicorn WSGI production entry point
+│   ├── config.py               # Application configuration & environments
+│   ├── models/                 # Flask-SQLAlchemy db.Model definitions
 │   │   ├── user.py
 │   │   ├── resume.py
 │   │   ├── role.py
@@ -73,33 +69,45 @@ interviewpilot/
 │   │   ├── dsa.py
 │   │   ├── company.py
 │   │   └── chat.py
-│   ├── routes/                 # FastAPI APIRouters
+│   ├── routes/                 # Flask Blueprints
 │   │   ├── auth.py             # Register / Login / JWT / Me
 │   │   ├── resume.py           # PDF upload + analysis
 │   │   ├── roles.py            # Role matching
 │   │   ├── roadmap.py          # AI roadmap generation
-│   │   └── interview.py        # Mock interview + SSE streaming
-│   ├── schemas/                # Pydantic validation schemas
-│   │   ├── auth.py
-│   │   ├── interview.py
-│   │   ├── roadmap.py
-│   │   ├── roles.py
-│   │   └── resume.py
+│   │   ├── interview.py        # Mock interview + SSE streaming
+│   │   ├── companies.py        # Company interview tracks
+│   │   └── code.py             # Code evaluation & feedback
 │   ├── services/
-│   │   ├── ai_service.py       # Groq AI async streaming & completions
+│   │   ├── ai_service.py       # Groq AI streaming & structured responses
 │   │   ├── resume_service.py   # PDF parsing + scoring
 │   │   └── role_service.py     # Skill matching algorithm
 │   ├── database/
-│   │   ├── db.py               # SQLAlchemy 2.0 Session & Base
+│   │   ├── db.py               # Flask-SQLAlchemy db instance
 │   │   └── seed.py             # Seed roles and companies
 │   ├── utils/
-│   │   ├── auth.py             # JWT dependencies & password utils
-│   │   └── file_utils.py       # UploadFile helpers
+│   │   └── file_utils.py       # Upload validation & PDF verification
+│   ├── Procfile                # Gunicorn process definition
 │   └── requirements.txt
 └── frontend/
     ├── src/
     │   ├── pages/
     │   │   ├── Login.jsx
+    │   │   ├── Register.jsx
+    │   │   ├── Dashboard.jsx
+    │   │   ├── ResumeAnalyzer.jsx
+    │   │   ├── RoleMatch.jsx
+    │   │   ├── Roadmap.jsx
+    │   │   ├── MockInterview.jsx
+    │   │   ├── CompanyPrep.jsx
+    │   │   └── CodePlayground.jsx
+    │   ├── components/
+    │   │   └── Navbar.jsx
+    │   ├── context/
+    │   │   └── AuthContext.jsx
+    │   └── utils/
+    │       └── api.js
+    └── package.json
+``` │   │   ├── Login.jsx
     │   │   ├── Register.jsx
     │   │   ├── Dashboard.jsx
     │   │   ├── ResumeAnalyzer.jsx
@@ -154,12 +162,12 @@ CORS_ORIGINS=http://localhost:5173
 # Seed database (first time only)
 python database/seed.py
 
-# Start FastAPI backend
-uvicorn main:app --reload --port 5000
+# Start Flask backend
+python app.py
 ```
 
 Backend runs at: `http://localhost:5000`
-Interactive API Docs (Swagger UI): `http://localhost:5000/docs`
+Health check: `http://localhost:5000/api/health`
 
 ### Frontend
 
@@ -195,20 +203,33 @@ Frontend runs at: `http://localhost:5173`
 |--------|----------|-------------|------|
 | GET | `/api/roles/` | List all roles | Yes |
 | POST | `/api/roles/match` | Match skills to roles | Yes |
+| POST | `/api/roles/match/<id>` | Match specific role | Yes |
 
 ### Roadmap
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | POST | `/api/roadmap/generate` | Generate AI roadmap | Yes |
 | GET | `/api/roadmap/history` | Past roadmaps | Yes |
+| GET | `/api/roadmap/<id>` | Retrieve specific roadmap | Yes |
 
 ### Interview
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| POST | `/api/interview/generate` | Generate questions | Yes |
+| POST | `/api/interview/generate` | Generate questions (supports company) | Yes |
 | POST | `/api/interview/submit` | Submit + get feedback | Yes |
 | POST | `/api/interview/chat-stream` | Real-time AI streaming (SSE) | Yes |
 | GET | `/api/interview/history` | Past interviews | Yes |
+
+### Company Preparation
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/companies/` | List company interview prep tracks | Yes |
+| GET | `/api/companies/<id>` | Retrieve specific company track | Yes |
+
+### Code Evaluation
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| POST | `/api/code/review` | AI Code analysis & complexity evaluation | Yes |
 
 ---
 
@@ -221,10 +242,10 @@ Frontend runs at: `http://localhost:5173`
 4. Add env var: `VITE_API_URL=https://your-render-url.onrender.com`
 
 ### Backend → Render / Railway
-1. Connect GitHub repo to Render
+1. Connect GitHub repo to Render / Railway
 2. Root directory: `backend`
 3. Build command: `pip install -r requirements.txt`
-4. Start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+4. Start command: `gunicorn wsgi:app`
 5. Add environment variables (DATABASE_URL, JWT_SECRET_KEY, GROQ_API_KEY, CORS_ORIGINS)
 
 ---

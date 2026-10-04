@@ -1,27 +1,30 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from database.db import get_db
+from flask import Blueprint, jsonify
+from flask_jwt_extended import jwt_required
+from database.db import db
 from models.company import CompanyPreparation
-from utils.auth import get_current_user
 
-router = APIRouter(prefix="/api/companies", tags=["Company Preparation"])
+companies_bp = Blueprint("companies", __name__, url_prefix="/api/companies")
 
-@router.get("/")
-def get_all_companies(db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+
+@companies_bp.route("/", methods=["GET"])
+@jwt_required()
+def get_all_companies():
     """Retrieve all company preparation profiles."""
-    companies = db.query(CompanyPreparation).all()
-    return {
+    companies = CompanyPreparation.query.all()
+    return jsonify({
         "success": True,
         "companies": [c.to_dict() for c in companies]
-    }
+    }), 200
 
-@router.get("/{company_id}")
-def get_company(company_id: int, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
+
+@companies_bp.route("/<int:company_id>", methods=["GET"])
+@jwt_required()
+def get_company(company_id):
     """Retrieve details for a specific company."""
-    company = db.query(CompanyPreparation).filter(CompanyPreparation.id == company_id).first()
+    company = db.session.get(CompanyPreparation, company_id)
     if not company:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company profile not found")
-    return {
+        return jsonify({"success": False, "errors": ["Company profile not found."]}), 404
+    return jsonify({
         "success": True,
         "company": company.to_dict()
-    }
+    }), 200

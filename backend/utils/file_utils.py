@@ -1,7 +1,6 @@
 import os
 import uuid
 import re
-from fastapi import UploadFile
 
 ALLOWED_EXTENSIONS = {"pdf"}
 
@@ -13,20 +12,21 @@ def sanitize_filename(filename: str) -> str:
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def save_upload(upload_file: UploadFile, upload_folder: str, max_size_bytes: int = 10 * 1024 * 1024) -> tuple[str, str]:
-    """Save FastAPI UploadFile with size limit and PDF signature check. Returns (filename, filepath)."""
-    original = sanitize_filename(upload_file.filename or "resume.pdf")
+def save_upload(file_storage, upload_folder: str, max_size_bytes: int = 10 * 1024 * 1024) -> tuple[str, str]:
+    """Save uploaded FileStorage with size limit and PDF signature check. Returns (filename, filepath)."""
+    raw_name = getattr(file_storage, "filename", "resume.pdf") or "resume.pdf"
+    original = sanitize_filename(raw_name)
     unique = f"{uuid.uuid4().hex}_{original}"
     filepath = os.path.join(upload_folder, unique)
     os.makedirs(upload_folder, exist_ok=True)
-    
+
     total_size = 0
     first_chunk = True
-    
+
     try:
         with open(filepath, "wb") as f:
             while True:
-                chunk = upload_file.file.read(64 * 1024)
+                chunk = file_storage.read(64 * 1024)
                 if not chunk:
                     break
                 if first_chunk:
@@ -45,5 +45,5 @@ def save_upload(upload_file: UploadFile, upload_folder: str, max_size_bytes: int
             except OSError:
                 pass
         raise
-        
+
     return unique, filepath

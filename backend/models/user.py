@@ -1,24 +1,22 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime
-from sqlalchemy.orm import relationship
-from database.db import Base
+from database.db import db
 import bcrypt
 
-class User(Base):
+class User(db.Model):
     __tablename__ = "users"
 
-    id            = Column(Integer, primary_key=True, index=True)
-    full_name     = Column(String(120), nullable=False)
-    email         = Column(String(120), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
-    created_at    = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    id            = db.Column(db.Integer, primary_key=True)
+    full_name     = db.Column(db.String(120), nullable=False)
+    email         = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at    = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
-    resumes       = relationship("Resume",      back_populates="user", cascade="all, delete-orphan")
-    roadmaps      = relationship("Roadmap",     back_populates="user", cascade="all, delete-orphan")
-    interviews    = relationship("Interview",   back_populates="user", cascade="all, delete-orphan")
-    dsa_progress  = relationship("DSAProgress", back_populates="user", cascade="all, delete-orphan")
-    chat_history  = relationship("ChatHistory", back_populates="user", cascade="all, delete-orphan")
+    resumes       = db.relationship("Resume",      backref="user", lazy=True, cascade="all, delete-orphan")
+    roadmaps      = db.relationship("Roadmap",     backref="user", lazy=True, cascade="all, delete-orphan")
+    interviews    = db.relationship("Interview",   backref="user", lazy=True, cascade="all, delete-orphan")
+    dsa_progress  = db.relationship("DSAProgress", backref="user", lazy=True, cascade="all, delete-orphan")
+    chat_history  = db.relationship("ChatHistory", backref="user", lazy=True, cascade="all, delete-orphan")
 
     def set_password(self, password: str) -> None:
         salt = bcrypt.gensalt()

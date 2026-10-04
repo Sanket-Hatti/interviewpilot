@@ -1,20 +1,17 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, Float, JSON, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
-from database.db import Base
+from database.db import db
 
-class Resume(Base):
+class Resume(db.Model):
     __tablename__ = "resumes"
 
-    id          = Column(Integer, primary_key=True, index=True)
-    user_id     = Column(Integer, ForeignKey("users.id"), nullable=False)
-    filename    = Column(String(255), nullable=False)
-    file_path   = Column(String(500), nullable=False)
-    raw_text    = Column(Text)
-    uploaded_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    id          = db.Column(db.Integer, primary_key=True)
+    user_id     = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    filename    = db.Column(db.String(255), nullable=False)
+    file_path   = db.Column(db.String(500), nullable=False)
+    raw_text    = db.Column(db.Text)
+    uploaded_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
-    user        = relationship("User", back_populates="resumes")
-    analyses    = relationship("Analysis", back_populates="resume", cascade="all, delete-orphan")
+    analyses    = db.relationship("Analysis", backref="resume", lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -24,21 +21,19 @@ class Resume(Base):
         }
 
 
-class Analysis(Base):
+class Analysis(db.Model):
     __tablename__ = "analyses"
 
-    id               = Column(Integer, primary_key=True, index=True)
-    resume_id        = Column(Integer, ForeignKey("resumes.id"), nullable=False)
-    resume_score     = Column(Float, default=0.0)
-    extracted_skills = Column(JSON, default=list)
-    projects         = Column(JSON, default=list)
-    education        = Column(JSON, default=list)
-    experience       = Column(JSON, default=list)
-    strengths        = Column(JSON, default=list)
-    weaknesses       = Column(JSON, default=list)
-    analyzed_at      = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
-    resume           = relationship("Resume", back_populates="analyses")
+    id               = db.Column(db.Integer, primary_key=True)
+    resume_id        = db.Column(db.Integer, db.ForeignKey("resumes.id"), nullable=False)
+    resume_score     = db.Column(db.Float, default=0.0)
+    extracted_skills = db.Column(db.JSON, default=list)
+    projects         = db.Column(db.JSON, default=list)
+    education        = db.Column(db.JSON, default=list)
+    experience       = db.Column(db.JSON, default=list)
+    strengths        = db.Column(db.JSON, default=list)
+    weaknesses       = db.Column(db.JSON, default=list)
+    analyzed_at      = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
         return {

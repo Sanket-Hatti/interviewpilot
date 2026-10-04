@@ -1,17 +1,15 @@
 import os
 import json
 import time
-from typing import AsyncGenerator
-from groq import Groq, AsyncGroq
+from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
 
 API_KEY = os.getenv("GROQ_API_KEY", "")
-MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
 client = Groq(api_key=API_KEY)
-async_client = AsyncGroq(api_key=API_KEY)
 
 
 def _call_groq(prompt: str, retries: int = 3) -> str:
@@ -32,16 +30,16 @@ def _call_groq(prompt: str, retries: int = 3) -> str:
                 raise RuntimeError(f"Groq API error: {str(e)}")
 
 
-async def stream_groq_response(prompt: str) -> AsyncGenerator[str, None]:
+def stream_groq_response(prompt: str):
     """Stream response tokens from Groq for SSE."""
-    stream = await async_client.chat.completions.create(
+    stream = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
         max_tokens=2048,
         stream=True,
     )
-    async for chunk in stream:
+    for chunk in stream:
         content = chunk.choices[0].delta.content
         if content:
             yield content
@@ -57,10 +55,10 @@ def _parse_json(raw: str) -> dict | list:
     return json.loads(raw)
 
 
-async def generate_json_response(prompt: str) -> dict | list | None:
-    """Async helper to generate a structured JSON response from Groq."""
+def generate_json_response(prompt: str) -> dict | list | None:
+    """Generate a structured JSON response from Groq."""
     try:
-        response = await async_client.chat.completions.create(
+        response = client.chat.completions.create(
             model=MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
@@ -71,7 +69,7 @@ async def generate_json_response(prompt: str) -> dict | list | None:
         return _parse_json(content)
     except Exception:
         try:
-            response = await async_client.chat.completions.create(
+            response = client.chat.completions.create(
                 model=MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.3,

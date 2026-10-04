@@ -1,37 +1,34 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
-from typing import Optional, List
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required
 from services.ai_service import generate_json_response
-from utils.auth import get_current_user
 
-router = APIRouter(prefix="/api/code", tags=["Code Evaluation"])
+code_bp = Blueprint("code", __name__, url_prefix="/api/code")
 
-class CodeReviewRequest(BaseModel):
-    problem: str
-    code: str
-    language: str = "python"
 
-@router.post("/review")
-async def review_code(
-    payload: CodeReviewRequest,
-    current_user = Depends(get_current_user)
-):
+@code_bp.route("/review", methods=["POST"])
+@jwt_required()
+def review_code():
     """Analyze candidate code for accuracy, time/space complexity, and optimization."""
-    if not payload.code.strip():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Code cannot be empty")
+    data = request.get_json(silent=True) or {}
+    problem = (data.get("problem") or "").strip()
+    code = (data.get("code") or "").strip()
+    language = (data.get("language") or "python").strip()
+
+    if not code:
+        return jsonify({"success": False, "errors": ["Code cannot be empty."]}), 400
 
     prompt = f"""
 You are an expert technical interviewer at a top tech company (Google/Meta level).
 Review the following candidate solution:
 
 Problem:
-{payload.problem}
+{problem}
 
 Language:
-{payload.language}
+{language}
 
 Candidate Code:
-{payload.code}
+{code}
 
 Evaluate the code rigorously and return a JSON object with this exact structure:
 {{
@@ -48,14 +45,14 @@ Evaluate the code rigorously and return a JSON object with this exact structure:
 }}
 """
 
-    result = await generate_json_response(prompt)
+    result = generate_json_response(prompt)
     if not result:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"success": False, "errors": ["AI code evaluation service is currently unavailable. Please try again in a few moments."]}
-        )
+        return jsonify({
+            "success": False,
+            "errors": ["AI code evaluation service is currently unavailable. Please try again in a few moments."]
+        }), 503
 
-    return {
+    return jsonify({
         "success": True,
         "evaluation": result
-    }
+    }), 200

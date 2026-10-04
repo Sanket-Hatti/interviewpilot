@@ -1,26 +1,22 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, ForeignKey
-from sqlalchemy.orm import relationship
-from database.db import Base
+from database.db import db
 
 DSA_TOPICS = [
     "Arrays", "Strings", "Linked Lists", "Stack",
     "Queue", "Trees", "Graphs", "Dynamic Programming"
 ]
 
-class DSAProgress(Base):
+class DSAProgress(db.Model):
     __tablename__ = "dsa_progress"
 
-    id           = Column(Integer, primary_key=True, index=True)
-    user_id      = Column(Integer, ForeignKey("users.id"), nullable=False)
-    topic        = Column(String(60), nullable=False)
-    problem_name = Column(String(200), nullable=False)
-    difficulty   = Column(String(20), default="medium")  # easy / medium / hard
-    solved       = Column(Boolean, default=True)
-    date_solved  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    notes        = Column(Text)
-
-    user         = relationship("User", back_populates="dsa_progress")
+    id           = db.Column(db.Integer, primary_key=True)
+    user_id      = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    topic        = db.Column(db.String(60), nullable=False)
+    problem_name = db.Column(db.String(200), nullable=False)
+    difficulty   = db.Column(db.String(20), default="medium")  # easy / medium / hard
+    solved       = db.Column(db.Boolean, default=True)
+    date_solved  = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    notes        = db.Column(db.Text)
 
     def to_dict(self):
         return {
