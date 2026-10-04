@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-[#090a0f] text-zinc-100 font-sans antialiased selection:bg-zinc-800 selection:text-white;
+    @apply bg-[#0b0f17] text-zinc-100 font-sans antialiased selection:bg-indigo-600 selection:text-white;
   }
   * {
     @apply border-zinc-800/80;
@@ -22,12 +22,6 @@
     @apply w-full bg-zinc-900/90 border border-zinc-800 rounded-lg px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-600 focus:border-zinc-600 transition-all;
   }
   .card {
-    @apply bg-zinc-900/50 backdrop-blur-sm border border-zinc-800/80 rounded-xl p-6 hover:border-zinc-700/80 transition-all duration-200;
+    @apply bg-zinc-900/40 backdrop-blur-sm border border-zinc-800/70 rounded-xl p-5 hover:border-zinc-700/80 transition-all duration-200;
   }
-}
-
-/* Subtle, refined dot matrix */
-.bg-grid-pattern {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  background-size: 24px 24px;
 }
