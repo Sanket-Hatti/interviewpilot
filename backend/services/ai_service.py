@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 API_KEY = os.getenv("GROQ_API_KEY", "")
-MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 
-client = Groq(api_key=API_KEY, timeout=8.0)
+client = Groq(api_key=API_KEY, timeout=12.0)
 
 
 def _call_groq(prompt: str, retries: int = 2) -> str:

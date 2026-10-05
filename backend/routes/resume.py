@@ -101,6 +101,13 @@ def analyze():
 
     db.session.commit()
 
+    # RAG Pipeline: Index resume chunks into pgvector
+    try:
+        from services.rag_service import index_resume_document
+        index_resume_document(user_id, resume.id, result.get("raw_text", ""), profile.to_dict())
+    except Exception as rag_err:
+        pass
+
     # Auto-run role matching with extracted skills
     roles = Role.query.all()
     role_matches = match_all_roles(result["extracted_skills"], roles)

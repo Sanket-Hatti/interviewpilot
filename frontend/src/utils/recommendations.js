@@ -2,8 +2,9 @@
  * Recommendation Engine for InterviewPilot (Agentic Workflow Foundation)
  * Evaluates real candidate state and deterministically calculates the Next Best Action.
  * 
- * Future agent hook: This pure function can be swapped with or augmented by
- * an asynchronous call to the InterviewPilot Adaptive Agent.
+ * Safe Migration Path:
+ * getNextBestAction() & rule_based_next_action() provide guaranteed deterministic fallbacks,
+ * while fetchAgentNextAction() queries the autonomous InterviewPilot Agent.
  *
  * @param {Object} params
  * @param {Object} params.user Current authenticated user profile
@@ -11,6 +12,10 @@
  * @param {Object} [params.jobTarget] Active JobTarget entity
  * @returns {Object} { title, description, actionLabel, route, reason }
  */
+export function rule_based_next_action({ user, stats, jobTarget }) {
+  return getNextBestAction({ user, stats, jobTarget });
+}
+
 export function getNextBestAction({ user, stats, jobTarget }) {
   const hasResume = Boolean(stats && (stats.resumeScore !== null || stats.hasResumeProfile));
   const effectiveRole = jobTarget?.target_role || user?.target_role || stats?.bestRole;

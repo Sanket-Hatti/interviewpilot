@@ -24,9 +24,12 @@ class Config:
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "dev-secret-change-in-production")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
 
-    # AI
+    # AI & Agent
     GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-    GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
+    MODEL_NAME = os.getenv("MODEL_NAME", os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b"))
+    EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "fastembed")
+    EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 
     # File Upload
     MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB

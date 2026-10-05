@@ -80,6 +80,20 @@ def submit():
     interview.feedback = feedback
     db.session.commit()
 
+    # Index interview feedback in RAG for future grounded retrieval
+    try:
+        from services.rag_service import index_interview_feedback_document
+        index_interview_feedback_document(
+            user_id=user_id,
+            interview_id=interview.id,
+            role=interview.role,
+            feedback=feedback,
+            overall_score=float(interview.overall_score or 0)
+        )
+    except Exception as rag_err:
+        import logging
+        logging.getLogger(__name__).warning("RAG indexing for interview %s failed: %s", interview.id, rag_err)
+
     return jsonify({
         "success": True,
         "interview_id": interview.id,

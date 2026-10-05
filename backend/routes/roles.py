@@ -116,6 +116,20 @@ def analyze_role_and_job():
 
     db.session.commit()
 
+    # RAG Pipeline: Index job description chunks into pgvector
+    try:
+        from services.rag_service import index_job_document
+        index_job_document(
+            user_id=user_id,
+            target_id=job_target.id,
+            job_description=effective_jd or (target_role or ""),
+            target_role=target_role,
+            target_company=target_company,
+            job_analysis=jd_analysis
+        )
+    except Exception as rag_err:
+        pass
+
     return jsonify({
         "success": True,
         "message": "Role & job gap analysis completed.",

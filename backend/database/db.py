@@ -14,15 +14,21 @@ def init_db(app):
         import models.company
         import models.dsa
         import models.chat
+        import models.document
         try:
-            db.create_all()
             with db.engine.connect() as conn:
+                try:
+                    conn.execute(db.text("CREATE EXTENSION IF NOT EXISTS vector;"))
+                    conn.commit()
+                except Exception:
+                    pass
                 conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS career_goal VARCHAR(120);"))
                 conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS target_role VARCHAR(120);"))
                 conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS target_company VARCHAR(120);"))
                 conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS resume_id INTEGER;"))
                 conn.execute(db.text("ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;"))
                 conn.commit()
+            db.create_all()
         except Exception as e:
             app.logger.warning(f"Database connection warning on startup: {e}")
 

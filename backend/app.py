@@ -14,6 +14,8 @@ from routes.roadmap import roadmap_bp
 from routes.interview import interview_bp
 from routes.companies import companies_bp
 from routes.code import code_bp
+from routes.rag import rag_bp
+from routes.agent import agent_bp
 
 
 def create_app(env: str = "development") -> Flask:
@@ -41,6 +43,8 @@ def create_app(env: str = "development") -> Flask:
     app.register_blueprint(interview_bp)
     app.register_blueprint(companies_bp)
     app.register_blueprint(code_bp)
+    app.register_blueprint(rag_bp)
+    app.register_blueprint(agent_bp)
 
     @app.route("/")
     def root():

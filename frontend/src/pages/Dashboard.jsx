@@ -43,6 +43,7 @@ export default function Dashboard() {
 
   const [recentInterviews, setRecentInterviews] = useState([]);
   const [activeJobTarget, setActiveJobTarget] = useState(null);
+  const [agentRecommendation, setAgentRecommendation] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -163,6 +164,24 @@ export default function Dashboard() {
             }));
           }
         }
+
+        // Fetch Agent dynamic recommendation (safe background enhancement)
+        try {
+          const agentRes = await api.get("/api/agent/next-action");
+          if (agentRes.data?.success && agentRes.data?.recommendation) {
+            const rec = agentRes.data.recommendation;
+            setAgentRecommendation({
+              title: rec.title,
+              description: rec.description,
+              actionLabel: rec.action_label || rec.actionLabel,
+              route: rec.route,
+              reason: rec.reason,
+              source: rec.source || "agent"
+            });
+          }
+        } catch (_) {
+          // Graceful fallback to deterministic recommendation
+        }
       } catch (err) {
         // Silent fallback
       }
@@ -226,10 +245,13 @@ export default function Dashboard() {
     return "Strong technical foundation. Focus on high-difficulty behavioral and live coding scenarios.";
   }, [hasAnyData, stats]);
 
-  // Next Best Action (AI Recommendation Foundation - agentic ready)
+  // Next Best Action (AI Agent recommendation with deterministic fallback)
   const nextBestAction = useMemo(() => {
+    if (agentRecommendation) {
+      return agentRecommendation;
+    }
     return getNextBestAction({ user, stats, jobTarget: activeJobTarget });
-  }, [user, stats, activeJobTarget]);
+  }, [user, stats, activeJobTarget, agentRecommendation]);
 
   // Recent Activity items combined
   const recentActivity = useMemo(() => {
@@ -362,9 +384,16 @@ export default function Dashboard() {
 
         {/* ── 3. AI RECOMMENDATION: YOUR NEXT BEST ACTION ── */}
         <div className="rounded-xl bg-zinc-900/40 border border-indigo-500/30 p-4 sm:p-5 space-y-2.5 relative overflow-hidden">
-          <div className="flex items-center gap-1.5 text-indigo-400 text-xs font-semibold tracking-wide">
-            <span>✦</span>
-            <span>Recommended for you</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-indigo-400 text-xs font-semibold tracking-wide">
+              <span>✦</span>
+              <span>Recommended for you</span>
+            </div>
+            {nextBestAction.source === "agent" && (
+              <span className="text-[10px] uppercase font-bold tracking-wider text-purple-400 bg-purple-950/60 border border-purple-500/30 px-2 py-0.5 rounded-full">
+                AI Agent
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
