@@ -15,6 +15,7 @@ def init_db(app):
         import models.dsa
         import models.chat
         import models.document
+        import models.practice
         try:
             with db.engine.connect() as conn:
                 try:
