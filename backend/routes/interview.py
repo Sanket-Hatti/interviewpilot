@@ -124,3 +124,136 @@ def chat_stream():
             yield f"data: {chunk}\n\n"
 
     return Response(stream_with_context(generate()), mimetype="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
+# ADAPTIVE AGENTIC MOCK INTERVIEW ENDPOINTS
+# ---------------------------------------------------------------------------
+
+@interview_bp.route("/start", methods=["POST"])
+@jwt_required()
+def start_session():
+    """
+    Starts an adaptive, turn-by-turn mock interview.
+    Generates question 1 grounded in candidate resume and target job context.
+    """
+    user_id = int(get_jwt_identity())
+    data = request.get_json(silent=True) or {}
+
+    role = (data.get("role") or "").strip() or None
+    company = (data.get("company") or "").strip() or None
+    interview_type = (data.get("interview_type") or "mixed").strip().lower()
+    if interview_type not in ["technical", "behavioral", "mixed"]:
+        interview_type = "mixed"
+
+    max_q = data.get("maximum_questions") or data.get("max_questions") or 5
+
+    try:
+        from services.adaptive_interview_service import start_adaptive_interview
+        session, turn = start_adaptive_interview(
+            user_id=user_id,
+            role=role,
+            company=company,
+            interview_type=interview_type,
+            maximum_questions=max_q
+        )
+        return jsonify({
+            "success": True,
+            "session_id": session.id,
+            "session": session.to_dict(),
+            "turn": turn.to_dict()
+        }), 201
+    except Exception as e:
+        return jsonify({"success": False, "errors": [str(e)]}), 500
+
+
+@interview_bp.route("/<int:session_id>/answer", methods=["POST"])
+@jwt_required()
+def submit_turn_answer(session_id: int):
+    """
+    Submits answer for active turn.
+    Evaluates answer, adapts topic/difficulty, and generates next question or final report.
+    """
+    user_id = int(get_jwt_identity())
+    data = request.get_json(silent=True) or {}
+    answer = (data.get("answer") or "").strip()
+
+    if not answer:
+        return jsonify({"success": False, "errors": ["Please provide an answer to evaluate."]}), 400
+
+    try:
+        from services.adaptive_interview_service import submit_adaptive_answer
+        result = submit_adaptive_answer(user_id=user_id, session_id=session_id, answer=answer)
+        return jsonify(result), 200
+    except ValueError as ve:
+        return jsonify({"success": False, "errors": [str(ve)]}), 404
+    except Exception as e:
+        return jsonify({"success": False, "errors": [str(e)]}), 500
+
+
+@interview_bp.route("/<int:session_id>/state", methods=["GET"])
+@jwt_required()
+def get_session_state(session_id: int):
+    """Returns active session state, current turn, and running scores."""
+    user_id = int(get_jwt_identity())
+    from models.interview import InterviewSession
+
+    session = InterviewSession.query.filter_by(id=session_id, user_id=user_id).first()
+    if not session:
+        return jsonify({"success": False, "errors": ["Interview session not found."]}), 404
+
+    active_turn = session.turns.filter_by(turn_number=session.question_number).first()
+    return jsonify({
+        "success": True,
+        "session": session.to_dict(),
+        "current_turn": active_turn.to_dict() if active_turn else None
+    }), 200
+
+
+@interview_bp.route("/<int:session_id>/history", methods=["GET"])
+@jwt_required()
+def get_session_history(session_id: int):
+    """Returns full turn-by-turn history, questions, answers, and evaluations for session."""
+    user_id = int(get_jwt_identity())
+    from models.interview import InterviewSession
+
+    session = InterviewSession.query.filter_by(id=session_id, user_id=user_id).first()
+    if not session:
+        return jsonify({"success": False, "errors": ["Interview session not found."]}), 404
+
+    turns = session.turns.all()
+    return jsonify({
+        "success": True,
+        "session": session.to_dict(),
+        "turns": [t.to_dict() for t in turns]
+    }), 200
+
+
+@interview_bp.route("/<int:session_id>/complete", methods=["POST"])
+@jwt_required()
+def complete_session(session_id: int):
+    """Concludes active session and compiles final diagnostic evaluation report."""
+    user_id = int(get_jwt_identity())
+    try:
+        from services.adaptive_interview_service import complete_adaptive_interview
+        result = complete_adaptive_interview(user_id=user_id, session_id=session_id)
+        return jsonify(result), 200
+    except ValueError as ve:
+        return jsonify({"success": False, "errors": [str(ve)]}), 404
+    except Exception as e:
+        return jsonify({"success": False, "errors": [str(e)]}), 500
+
+
+@interview_bp.route("/sessions", methods=["GET"])
+@jwt_required()
+def list_sessions():
+    """Lists all adaptive interview sessions for the authenticated user."""
+    user_id = int(get_jwt_identity())
+    from models.interview import InterviewSession
+
+    sessions = InterviewSession.query.filter_by(user_id=user_id).order_by(InterviewSession.created_at.desc()).all()
+    return jsonify({
+        "success": True,
+        "sessions": [s.to_dict() for s in sessions]
+    }), 200
+

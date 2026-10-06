@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional
 from database.db import db
 from models.candidate import CandidateProfile, JobTarget
 from models.user import User
-from models.interview import Interview
+from models.interview import Interview, InterviewSession, InterviewTurn
 from models.roadmap import Roadmap
 from models.dsa import DSAProgress
 from services.retrieval_service import (
@@ -411,6 +411,51 @@ def tool_recommend_next_action(user_id: int, **kwargs) -> Dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# Tool 12: get_interview_session
+# ---------------------------------------------------------------------------
+def tool_get_interview_session(user_id: int, session_id: int, **kwargs) -> Dict[str, Any]:
+    """Retrieve active adaptive interview session state."""
+    session = InterviewSession.query.filter_by(id=session_id, user_id=user_id).first()
+    if not session:
+        return {"error": "Interview session not found.", "has_session": False}
+    return {"has_session": True, "session": session.to_dict()}
+
+
+# ---------------------------------------------------------------------------
+# Tool 13: get_previous_interview_turns
+# ---------------------------------------------------------------------------
+def tool_get_previous_interview_turns(user_id: int, session_id: int, **kwargs) -> Dict[str, Any]:
+    """Retrieve past questions, answers, and evaluations for an interview session."""
+    session = InterviewSession.query.filter_by(id=session_id, user_id=user_id).first()
+    if not session:
+        return {"error": "Interview session not found.", "turns": []}
+    turns = session.turns.all()
+    return {
+        "session_id": session_id,
+        "turns_count": len(turns),
+        "turns": [t.to_dict() for t in turns]
+    }
+
+
+# ---------------------------------------------------------------------------
+# Tool 14: evaluate_interview_answer
+# ---------------------------------------------------------------------------
+def tool_evaluate_interview_answer(user_id: int, session_id: int, answer: str = "", **kwargs) -> Dict[str, Any]:
+    """Submit answer for current turn, evaluate, and adapt interview session."""
+    from services.adaptive_interview_service import submit_adaptive_answer
+    return submit_adaptive_answer(user_id=user_id, session_id=session_id, answer=answer)
+
+
+# ---------------------------------------------------------------------------
+# Tool 15: complete_interview
+# ---------------------------------------------------------------------------
+def tool_complete_interview(user_id: int, session_id: int, **kwargs) -> Dict[str, Any]:
+    """Conclude adaptive interview session and compile comprehensive diagnostic report."""
+    from services.adaptive_interview_service import complete_adaptive_interview
+    return complete_adaptive_interview(user_id=user_id, session_id=session_id)
+
+
 # Map of tool names to implementations
 AGENT_TOOLS = {
     "get_candidate_profile": tool_get_candidate_profile,
@@ -424,6 +469,10 @@ AGENT_TOOLS = {
     "create_or_update_roadmap": tool_create_or_update_roadmap,
     "update_user_progress": tool_update_user_progress,
     "recommend_next_action": tool_recommend_next_action,
+    "get_interview_session": tool_get_interview_session,
+    "get_previous_interview_turns": tool_get_previous_interview_turns,
+    "evaluate_interview_answer": tool_evaluate_interview_answer,
+    "complete_interview": tool_complete_interview,
 }
 
 # Explicit JSON schema definitions for model tool-calling
@@ -540,6 +589,63 @@ AGENT_TOOLS_SCHEMA = [
             "name": "recommend_next_action",
             "description": "Deterministically evaluate state and calculate next best preparation step.",
             "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_interview_session",
+            "description": "Retrieve current status, topic, and difficulty for active adaptive interview session.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "integer"}
+                },
+                "required": ["session_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_previous_interview_turns",
+            "description": "Retrieve previous turns, questions, candidate answers, and score evaluations.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "integer"}
+                },
+                "required": ["session_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "evaluate_interview_answer",
+            "description": "Submit and evaluate candidate's turn answer and trigger adaptive next question.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "integer"},
+                    "answer": {"type": "string"}
+                },
+                "required": ["session_id", "answer"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "complete_interview",
+            "description": "Conclude adaptive interview session and compile comprehensive diagnostic report.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "session_id": {"type": "integer"}
+                },
+                "required": ["session_id"]
+            }
         }
     }
 ]
