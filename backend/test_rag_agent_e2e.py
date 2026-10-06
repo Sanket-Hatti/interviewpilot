@@ -277,6 +277,7 @@ def run_tests():
         # TEST 9: Agent Fallback to Deterministic Logic on Simulated Failure
         # -------------------------------------------------------------------
         logger.info("\n--- TEST 9: Agent Fallback On Simulated Failure ---")
+        db.session.remove()
         # Test rule_based_next_action directly
         deterministic_action = rule_based_next_action(user_id=user_a.id)
         assert deterministic_action is not None

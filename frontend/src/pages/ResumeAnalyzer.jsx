@@ -734,6 +734,24 @@ export default function ResumeAnalyzer() {
           )}
         </div>
 
+        {/* Next Step in Preparation Journey */}
+        <div className="card p-6 border border-indigo-500/40 bg-zinc-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl">
+          <div className="space-y-1">
+            <div className="text-xs font-semibold text-indigo-400">Next Step in Your Preparation Journey</div>
+            <div className="text-base font-bold text-white">Benchmark Against Your Target Role</div>
+            <p className="text-xs text-zinc-400 max-w-xl">
+              Compare your parsed candidate profile with your target role to isolate skill gaps and unlock your personalized roadmap.
+            </p>
+          </div>
+          <Link
+            to="/roles"
+            className="btn-primary inline-flex items-center gap-2 text-xs sm:text-sm font-bold px-5 py-2.5 shrink-0 shadow-lg"
+          >
+            <span>Continue to Target Role →</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
       </div>
     </div>
   );

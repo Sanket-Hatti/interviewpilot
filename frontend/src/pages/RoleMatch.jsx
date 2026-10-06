@@ -189,9 +189,9 @@ export default function RoleMatch() {
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
               <div className="space-y-0.5">
-                <h4 className="text-sm font-bold text-white">No Resume Profile Found Yet</h4>
+                <h4 className="text-sm font-bold text-white">You haven't analyzed a resume yet</h4>
                 <p className="text-xs text-amber-200/80 max-w-xl">
-                  Upload your resume first so InterviewPilot can extract your genuine skills and projects. Without a resume, comparison will show all requirements as not detected.
+                  Upload your resume so InterviewPilot can extract your genuine skills and benchmark them against job requirements.
                 </p>
               </div>
             </div>
@@ -199,7 +199,7 @@ export default function RoleMatch() {
               to="/resume"
               className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition-colors shrink-0 text-center"
             >
-              Upload Resume First
+              Analyze my resume →
             </Link>
           </div>
         )}

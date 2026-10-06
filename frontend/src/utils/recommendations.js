@@ -33,7 +33,15 @@ export function getNextBestAction({ user, stats, jobTarget }) {
       description: "Upload your resume so InterviewPilot can extract your genuine skills and build your verified candidate profile.",
       actionLabel: "Analyze my resume →",
       route: "/resume",
-      reason: "resume_missing"
+      target: "/resume",
+      reason: "resume_missing",
+      topic: "Resume Analysis",
+      priority: "High Priority",
+      whyReasons: [
+        "Resume analysis required to benchmark your skills",
+        "Enables personalized preparation roadmap",
+        "Identifies verified technical strengths"
+      ]
     };
   }
 
@@ -46,7 +54,15 @@ export function getNextBestAction({ user, stats, jobTarget }) {
         : "Compare your candidate profile with target job descriptions to identify exact market skill gaps.",
       actionLabel: "Analyze target role →",
       route: "/roles",
-      reason: "role_analysis_pending"
+      target: "/roles",
+      reason: "role_analysis_pending",
+      topic: "Target Role Benchmark",
+      priority: "High Priority",
+      whyReasons: [
+        "Role benchmark isolates critical skill gaps",
+        "Calibrates mock interview difficulty",
+        "Tailors roadmap to company expectations"
+      ]
     };
   }
 
@@ -57,7 +73,15 @@ export function getNextBestAction({ user, stats, jobTarget }) {
       description: `Your ${effectiveRole || "role"} benchmark is ready with ${missingSkills.length} identified focus areas. Generate a week-by-week curriculum.`,
       actionLabel: "Generate my plan →",
       route: "/roadmap",
-      reason: "roadmap_pending"
+      target: "/roadmap",
+      reason: "roadmap_pending",
+      topic: "Preparation Roadmap",
+      priority: "High Priority",
+      whyReasons: [
+        "Transforms skill gaps into week-by-week milestones",
+        "Structures practice hours to your target timeline",
+        `Prioritizes must-have skills for ${effectiveRole || "your target role"}`
+      ]
     };
   }
 
@@ -71,7 +95,15 @@ export function getNextBestAction({ user, stats, jobTarget }) {
       description: `Your customized preparation roadmap prioritizes ${topGap} as your primary gap for ${effectiveRole || "your target role"}. Begin focused technical practice.`,
       actionLabel: `Start ${topGap} practice →`,
       route: "/code",
-      reason: "start_gap_practice"
+      target: "/code",
+      reason: "start_gap_practice",
+      topic: topGap,
+      priority: "High Priority",
+      whyReasons: [
+        "Required by your target role",
+        "Primary gap identified in your roadmap",
+        "High-impact preparation area"
+      ]
     };
   }
 
@@ -83,7 +115,15 @@ export function getNextBestAction({ user, stats, jobTarget }) {
       description: "Based on your technical practice, focus on complex multi-table JOINs, subqueries, and indexing optimization.",
       actionLabel: "Practice SQL JOINs →",
       route: "/code",
-      reason: "deepen_sql_joins"
+      target: "/code",
+      reason: "deepen_sql_joins",
+      topic: "SQL Optimization",
+      priority: "Medium",
+      whyReasons: [
+        "Required by your target role",
+        "Weak in your recent interview or practice",
+        "High-impact preparation area"
+      ]
     };
   }
 
@@ -93,7 +133,15 @@ export function getNextBestAction({ user, stats, jobTarget }) {
       description: "Sharpen architecture knowledge on IAM policies, ECS container orchestration, and VPC networking for upcoming rounds.",
       actionLabel: "Practice AWS concepts →",
       route: "/interview",
-      reason: "deepen_aws"
+      target: "/interview",
+      reason: "deepen_aws",
+      topic: "AWS Networking",
+      priority: "High Priority",
+      whyReasons: [
+        "Required by your target role",
+        "Weak in your recent interview",
+        "High-impact preparation area"
+      ]
     };
   }
 
@@ -108,7 +156,15 @@ export function getNextBestAction({ user, stats, jobTarget }) {
       description: "Sharpen structured storytelling using the STAR framework to raise your communication readiness rating.",
       actionLabel: "Practice behavioral →",
       route: "/interview",
-      reason: "behavioral_lower"
+      target: "/interview",
+      reason: "behavioral_lower",
+      topic: "STAR Behavioral",
+      priority: "High Priority",
+      whyReasons: [
+        "Communication score lower than technical score",
+        "STAR framework required for behavioral rounds",
+        "Key evaluation factor in final loops"
+      ]
     };
   }
 
@@ -119,7 +175,15 @@ export function getNextBestAction({ user, stats, jobTarget }) {
       description: `Your recent practice average is ${stats.avgInterviewScore}%. Take another simulation to solidify structured response delivery.`,
       actionLabel: "Practice again →",
       route: "/interview",
-      reason: "score_improvement"
+      target: "/interview",
+      reason: "score_improvement",
+      topic: "Adaptive Mock",
+      priority: "Medium",
+      whyReasons: [
+        `Recent mock interview average is ${stats.avgInterviewScore}%`,
+        "Tests live problem solving under time constraints",
+        "Calibrates adaptive difficulty"
+      ]
     };
   }
 
@@ -130,7 +194,15 @@ export function getNextBestAction({ user, stats, jobTarget }) {
       description: `Review specific round structures, evaluation criteria, and known problem patterns for ${jobTarget.target_company}.`,
       actionLabel: "Explore company track →",
       route: "/companies",
-      reason: "company_prep"
+      target: "/companies",
+      reason: "company_prep",
+      topic: jobTarget.target_company,
+      priority: "Medium",
+      whyReasons: [
+        `${jobTarget.target_company} specific hiring bar`,
+        "Enterprise-specific evaluation rubrics",
+        "High-yield targeted practice"
+      ]
     };
   }
 
@@ -140,7 +212,15 @@ export function getNextBestAction({ user, stats, jobTarget }) {
     description: "Review specific interview formats, question patterns, and prep playbooks for American Express, TCS, Infosys, and more.",
     actionLabel: "Explore tracks →",
     route: "/companies",
-    reason: "company_prep"
+    target: "/companies",
+    reason: "company_prep",
+    topic: "Enterprise Playbooks",
+    priority: "Medium",
+    whyReasons: [
+      "Company-specific question formats",
+      "Benchmark against top tech firms",
+      "Comprehensive interview readiness"
+    ]
   };
 }
 

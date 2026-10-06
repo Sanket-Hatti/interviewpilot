@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import api from "../utils/api";
@@ -13,7 +14,8 @@ import {
   Sparkles,
   Zap,
   Terminal,
-  ChevronRight
+  ChevronRight,
+  ArrowRight
 } from "lucide-react";
 
 const PROBLEMS = [
@@ -125,10 +127,12 @@ export default function CodePlayground() {
       const res = await api.post("/api/code/review", {
         problem: selectedProblem.description,
         code,
-        language
+        language,
+        topic: selectedProblem.category,
+        problem_name: selectedProblem.title
       });
       setReviewResult(res.data.evaluation);
-      toast.success("AI Code review and complexity analysis complete!");
+      toast.success("AI code review and complexity analysis complete!");
     } catch (err) {
       toast.error("Evaluation failed. Check backend connection.");
     } finally {
@@ -387,6 +391,20 @@ export default function CodePlayground() {
                     </pre>
                   </div>
                 )}
+
+                {/* Coaching Loop: Continue Preparation */}
+                <div className="pt-3 border-t border-zinc-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <span className="text-[11px] text-zinc-400">
+                    Activity and complexity audit recorded to persistent coaching memory.
+                  </span>
+                  <Link
+                    to="/dashboard"
+                    className="btn-primary inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 shrink-0"
+                  >
+                    <span>Continue preparation →</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
 
               </motion.div>
             )}
