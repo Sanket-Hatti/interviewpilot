@@ -127,6 +127,24 @@ def search_interview_feedback(user_id: int, query: str, top_k: int = 3) -> List[
     return _vector_search_chunks(user_id, query, document_types=["interview_feedback"], top_k=top_k)
 
 
+def search_practice_feedback(user_id: int, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
+    """Retrieve prior practice drill feedback, mistakes, and scores for the user."""
+    return _vector_search_chunks(user_id, query, document_types=["practice_feedback"], top_k=top_k)
+
+
+def search_coaching_context(user_id: int, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    """
+    Retrieve historical context across resume, job requirements, interview evaluations, and practice feedback.
+    Provides complete historical memory for the persistent AI Coach.
+    """
+    return _vector_search_chunks(
+        user_id,
+        query,
+        document_types=["resume", "job_description", "interview_feedback", "practice_feedback"],
+        top_k=top_k
+    )
+
+
 def construct_rag_context(
     user_id: int,
     query: str,

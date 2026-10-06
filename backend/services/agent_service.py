@@ -42,46 +42,40 @@ groq_client = Groq(api_key=API_KEY, timeout=12.0) if API_KEY else None
 # ---------------------------------------------------------------------------
 def get_agent_state(user_id: int) -> Dict[str, Any]:
     """
-    Constructs a clean, non-duplicated representation of the candidate's current state.
+    Constructs the canonical representation of candidate state.
     Provides complete situational awareness for the decision agent.
     """
-    user = db.session.get(User, user_id)
-    profile = CandidateProfile.query.filter_by(user_id=user_id).first()
-    target = JobTarget.query.filter_by(user_id=user_id).order_by(JobTarget.updated_at.desc()).first()
-    roadmap = Roadmap.query.filter_by(user_id=user_id).order_by(Roadmap.created_at.desc()).first()
-    interviews = Interview.query.filter_by(user_id=user_id).order_by(Interview.created_at.desc()).all()
-    dsa_count = DSAProgress.query.filter_by(user_id=user_id).count()
+    from services.candidate_context_service import build_canonical_candidate_state, calculate_progress_signals
+    canonical = build_canonical_candidate_state(user_id)
+    signals = calculate_progress_signals(user_id, canonical)
 
-    interview_scores = [i.overall_score for i in interviews if i.overall_score is not None]
-    recent_weaknesses = []
-    for iv in interviews[:3]:
-        if iv.feedback and isinstance(iv.feedback, dict):
-            w = iv.feedback.get("weaknesses") or []
-            if isinstance(w, list):
-                recent_weaknesses.extend(w)
+    cand = canonical["candidate"]
+    tgt = canonical["target"]
+    gaps = canonical["skill_gaps"]
+    rd = canonical["roadmap"]
+    prac = canonical["practice"]
+    iv = canonical["interviews"]
+    ag = canonical["agent"]
 
-    skill_gaps = target.missing_skills if target and target.missing_skills else []
-    if not skill_gaps and profile:
-        skill_gaps = getattr(profile, "areas_to_improve", None) or profile.weaknesses or []
-
-    current_focus = skill_gaps[0] if skill_gaps else (target.target_role if target else "General Prep")
-
-    return {
+    result = dict(canonical)
+    result.update({
         "user_id": user_id,
-        "target_role": target.target_role if target else (user.target_role if user else None),
-        "target_company": target.target_company if target else (user.target_company if user else None),
-        "resume_available": bool(profile and profile.skills),
-        "resume_score": profile.resume_score if profile else 0,
-        "verified_skills": (profile.skills or [])[:10] if profile else [],
-        "skill_gaps": skill_gaps[:5],
-        "roadmap_status": "active" if roadmap else "pending",
-        "roadmap_completion_pct": roadmap.completion_pct if roadmap else 0.0,
-        "recent_interview_scores": interview_scores[:4],
-        "recent_practice_scores": [80, 85] if dsa_count > 0 else [],
-        "dsa_problems_solved": dsa_count,
-        "recent_weaknesses": recent_weaknesses[:4],
-        "current_focus": current_focus,
-    }
+        "target_role": tgt["role"],
+        "target_company": tgt["company"],
+        "resume_available": cand["resume_available"],
+        "resume_score": cand["resume_score"],
+        "verified_skills": cand["skills"][:10],
+        "skill_gaps": gaps["missing"][:5] or gaps["needs_improvement"][:5],
+        "roadmap_status": "active" if rd["exists"] else "pending",
+        "roadmap_completion_pct": rd["completion_pct"],
+        "recent_interview_scores": iv["recent_scores"][:4],
+        "recent_practice_scores": prac["recent_scores"][:4],
+        "dsa_problems_solved": prac.get("total_activities", 0),
+        "recent_weaknesses": iv["weak_topics"][:4] + prac["weak_topics"][:4],
+        "current_focus": ag["current_focus"],
+        "progress_signals": signals
+    })
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -99,11 +93,11 @@ def rule_based_next_action(user_id: int) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 def agent_next_action(user_id: int) -> Dict[str, Any]:
     """
-    Autonomous decision loop for InterviewPilot:
-    1. Observes full agent state.
-    2. Uses LLM tool calling to deliberate and select appropriate backend action.
-    3. Executes chosen tool.
-    4. Formulates user-facing next action recommendation.
+    Autonomous decision loop for InterviewPilot AI Coach:
+    1. Observes canonical candidate state.
+    2. Retrieves relevant coaching RAG memory (interview feedback, practice mistakes).
+    3. Uses LLM tool calling to deliberate and select appropriate backend action.
+    4. Executes chosen tool or formulates targeted next action.
     5. Falls back seamlessly to rule_based_next_action on any API failure.
     """
     logger.info("Agent started deliberation for user %s", user_id)
@@ -118,15 +112,28 @@ def agent_next_action(user_id: int) -> Dict[str, Any]:
         logger.info("Groq client unavailable -> triggering rule_based fallback for user %s", user_id)
         return rule_based_next_action(user_id)
 
+    # Retrieve relevant coaching memory from pgvector
+    focus_topic = state.get("current_focus") or state.get("target_role") or "Software Engineering"
+    try:
+        from services.retrieval_service import search_coaching_context
+        coaching_chunks = search_coaching_context(user_id=user_id, query=f"{focus_topic} weaknesses mistakes requirements", top_k=3)
+        coaching_mem = "\n".join(f"[{c['document_type']} - {c['section']}]: {c['content'][:150]}..." for c in coaching_chunks) if coaching_chunks else "No prior drill or interview feedback chunks indexed yet."
+    except Exception as e:
+        logger.warning("Coaching memory retrieval skipped: %s", e)
+        coaching_mem = "Memory retrieval unavailable."
+
     system_prompt = (
-        "You are the InterviewPilot Decision Agent. You guide a candidate to prepare for their target job.\n"
-        "Observe the candidate's state and select the single most appropriate tool to run, or provide the next best action.\n"
-        "Prioritize resolving high-impact skill gaps, taking practice sessions, or building their roadmap.\n"
+        "You are the InterviewPilot Decision Agent (AI Coach). You guide a candidate to prepare for their target job.\n"
+        "Observe the candidate's canonical state and historical coaching memory.\n"
+        "Select the single most appropriate tool to run, or recommend the next best action.\n"
+        "Possible next actions: START_RESUME, SELECT_TARGET_ROLE, ANALYZE_ROLE, BUILD_ROADMAP, PRACTICE_SKILL, CONTINUE_SKILL, TAKE_MOCK_INTERVIEW, REVIEW_INTERVIEW, IMPROVE_WEAK_TOPIC, REVISE_RESUME, COMPLETE_PREPARATION.\n"
+        "Prioritize resolving high-impact skill gaps identified in interviews or practice over already mastered skills.\n"
         "Do NOT invent skills, roles, or scores not present in the user state."
     )
 
     user_prompt = (
         f"Candidate State:\n{json.dumps(state, indent=2)}\n\n"
+        f"Historical Coaching Memory:\n{coaching_mem}\n\n"
         "Analyze the candidate's state. Which tool should be called to determine or advance the next preparation step?"
     )
 
@@ -169,7 +176,7 @@ def agent_next_action(user_id: int) -> Dict[str, Any]:
                 logger.info("Agent completed deliberation with tool '%s' for user %s", tool_name, user_id)
                 return res
 
-            # If tool was analyze_skill_gaps or generate_practice_questions, format targeted action
+            # If tool was generate_practice_questions, format targeted action
             if tool_name == "generate_practice_questions" and tool_output.get("success"):
                 skill = args.get("skill", state.get("current_focus") or "Core Technical")
                 return {
@@ -177,8 +184,14 @@ def agent_next_action(user_id: int) -> Dict[str, Any]:
                     "description": f"Targeted practice questions generated for {skill} based on your identified gap for {state.get('target_role')}.",
                     "action_label": f"Start {skill} practice →",
                     "route": "/code",
+                    "target": "/code",
+                    "action": "PRACTICE_SKILL",
+                    "topic": skill,
+                    "priority": skill,
                     "reason": f"gap_drill_{skill.lower()}",
+                    "why_reasons": [f"Required by target role: {state.get('target_role')}", f"Isolated skill gap on your roadmap", "Targeted practice questions ready"],
                     "focus_skill": skill,
+                    "confidence": 0.88,
                     "source": "agent",
                     "tool_executed": tool_name
                 }
@@ -189,8 +202,14 @@ def agent_next_action(user_id: int) -> Dict[str, Any]:
                     "description": f"Personalized curriculum adjusted for your primary gaps ({', '.join(state.get('skill_gaps', [])[:3])}).",
                     "action_label": "View your roadmap →",
                     "route": "/roadmap",
+                    "target": "/roadmap",
+                    "action": "BUILD_ROADMAP",
+                    "topic": state.get("current_focus"),
+                    "priority": state.get("current_focus"),
                     "reason": "roadmap_updated",
+                    "why_reasons": ["Milestones adjusted to your active progress", "Updated weekly focus based on real performance", "Prepares you systematically for interview rounds"],
                     "focus_skill": state.get("current_focus"),
+                    "confidence": 0.90,
                     "source": "agent",
                     "tool_executed": tool_name
                 }

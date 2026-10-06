@@ -13,6 +13,7 @@ class Roadmap(db.Model):
     roadmap_data      = db.Column(db.JSON, default=dict)  # week-by-week plan
     completion_pct    = db.Column(db.Float, default=0.0)
     created_at        = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at        = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
         return {
@@ -24,5 +25,6 @@ class Roadmap(db.Model):
             "roadmap_data":   self.roadmap_data,
             "roadmap":        self.roadmap_data,
             "completion_pct": self.completion_pct,
-            "created_at":     self.created_at.isoformat() if self.created_at else None
+            "created_at":     self.created_at.isoformat() if self.created_at else None,
+            "updated_at":     self.updated_at.isoformat() if self.updated_at else None
         }

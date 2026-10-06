@@ -8,3 +8,4 @@ from .chat import ChatHistory
 from .company import CompanyPreparation
 from .candidate import CandidateProfile, JobTarget
 from .document import Document, DocumentChunk
+from .practice import PracticeActivity

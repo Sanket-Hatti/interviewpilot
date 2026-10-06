@@ -313,101 +313,159 @@ def tool_update_user_progress(user_id: int, focus_area: str = "", score: float =
 # Tool 11: recommend_next_action
 # ---------------------------------------------------------------------------
 def tool_recommend_next_action(user_id: int, **kwargs) -> Dict[str, Any]:
-    """Rule-based deterministic Next Best Action based on live stored state."""
-    profile = CandidateProfile.query.filter_by(user_id=user_id).first()
-    target = JobTarget.query.filter_by(user_id=user_id).order_by(JobTarget.updated_at.desc()).first()
-    roadmap = Roadmap.query.filter_by(user_id=user_id).order_by(Roadmap.created_at.desc()).first()
-    interviews = Interview.query.filter_by(user_id=user_id).all()
-    user = db.session.get(User, user_id)
+    """Rule-based deterministic Next Best Action based on canonical candidate state."""
+    from services.candidate_context_service import build_canonical_candidate_state
+
+    state = build_canonical_candidate_state(user_id)
+    cand = state["candidate"]
+    tgt = state["target"]
+    gaps = state["skill_gaps"]
+    rd = state["roadmap"]
+    prac = state["practice"]
+    iv = state["interviews"]
+    ag = state["agent"]
 
     # 1. No resume
-    if not profile or not profile.skills:
+    if not cand["profile_complete"] or not cand["skills"]:
         return {
             "title": "Start with your resume",
             "description": "Upload your resume so InterviewPilot can extract your genuine skills and build your verified candidate profile.",
             "action_label": "Analyze my resume →",
             "route": "/resume",
+            "target": "/resume",
+            "action": "START_RESUME",
+            "topic": None,
+            "priority": "Resume Upload",
             "reason": "resume_missing",
-            "focus_skill": None
+            "why_reasons": ["Resume analysis required to benchmark your skills", "Enables personalized prep roadmap", "Identifies verified technical strengths"],
+            "focus_skill": None,
+            "confidence": 0.95
         }
 
     # 2. No target role analysis
-    effective_role = (target.target_role if target else None) or (user.target_role if user else None)
-    if not target or target.match_score is None:
+    if not tgt["role"] or tgt["match_score"] is None:
+        role_name = tgt["role"] or "your target role"
         return {
             "title": "Analyze your target role",
-            "description": f"Benchmark your profile against requirements for {effective_role or 'your target role'} and identify your isolated skill gaps.",
+            "description": f"Benchmark your profile against requirements for {role_name} and identify your isolated skill gaps.",
             "action_label": "Analyze target role →",
             "route": "/roles",
+            "target": "/roles",
+            "action": "SELECT_TARGET_ROLE",
+            "topic": None,
+            "priority": "Target Role Selection",
             "reason": "role_analysis_pending",
-            "focus_skill": None
+            "why_reasons": ["Role benchmark isolates critical skill gaps", "Calibrates mock interview difficulty", "Tailors roadmap to company expectations"],
+            "focus_skill": None,
+            "confidence": 0.95
         }
 
     # 3. Role analyzed, roadmap pending
-    if not roadmap:
-        missing_count = len(target.missing_skills or [])
+    if not rd["exists"]:
+        missing_count = len(gaps["missing"])
+        top_missing = gaps["missing"][0] if gaps["missing"] else None
         return {
             "title": "Build your preparation plan",
-            "description": f"Your {target.target_role} benchmark is ready with {missing_count} identified focus areas. Generate a week-by-week curriculum.",
+            "description": f"Your {tgt['role']} benchmark is ready with {missing_count} identified focus areas. Generate a week-by-week curriculum.",
             "action_label": "Generate my plan →",
             "route": "/roadmap",
+            "target": "/roadmap",
+            "action": "BUILD_ROADMAP",
+            "topic": top_missing,
+            "priority": "Build Preparation Plan",
             "reason": "roadmap_pending",
-            "focus_skill": target.missing_skills[0] if target.missing_skills else None
+            "why_reasons": ["Transforms skill gaps into week-by-week milestones", "Structures practice hours to your target timeline", f"Prioritizes must-have skills for {tgt['role']}"],
+            "focus_skill": top_missing,
+            "confidence": 0.92
         }
 
-    # 4. Roadmap exists, no practice yet -> Start top gap
-    top_gap = target.missing_skills[0] if (target.missing_skills and len(target.missing_skills) > 0) else "SQL"
-    gap_lower = top_gap.lower()
+    # 4. Roadmap exists -> Evaluate priority engine decisions
+    top_gap = ag["priority"] or (gaps["missing"][0] if gaps["missing"] else "Core Technical")
+    action_type = ag["recommended_action"]
+    route = ag["target"] or "/code"
 
-    if len(interviews) == 0:
+    # If no interviews or practice completed yet -> Start top gap practice
+    if iv["completed"] == 0 and len(prac.get("recent_scores", [])) == 0:
         return {
             "title": f"Start {top_gap} practice",
-            "description": f"Your customized preparation roadmap prioritizes {top_gap} as your primary gap for {target.target_role}. Begin focused technical practice.",
+            "description": f"Your customized preparation roadmap prioritizes {top_gap} as your primary gap for {tgt['role']}. Begin focused technical practice.",
             "action_label": f"Start {top_gap} practice →",
             "route": "/code",
+            "target": "/code",
+            "action": "PRACTICE_SKILL",
+            "topic": top_gap,
+            "priority": top_gap,
             "reason": "start_gap_practice",
-            "focus_skill": top_gap
+            "why_reasons": [f"Required by your target role: {tgt['role']}", "Identified as priority gap on your roadmap", "Builds foundational problem solving confidence"],
+            "focus_skill": top_gap,
+            "confidence": 0.88
         }
 
-    # 5. After practice / mock sessions
-    if "sql" in gap_lower:
+    # Weakness from recent interview
+    if action_type == "IMPROVE_WEAK_TOPIC" or top_gap in iv["weak_topics"]:
         return {
-            "title": "Improve SQL JOINs",
-            "description": "Based on your technical practice, focus on complex multi-table JOINs, subqueries, and indexing optimization.",
-            "action_label": "Practice SQL JOINs →",
+            "title": f"Improve {top_gap}",
+            "description": f"Your recent interview showed weakness in {top_gap}. Take a targeted practice session to close this gap.",
+            "action_label": f"Practice {top_gap} →",
+            "route": route,
+            "target": route,
+            "action": "IMPROVE_WEAK_TOPIC",
+            "topic": top_gap,
+            "priority": top_gap,
+            "reason": f"gap_drill_{top_gap.lower().replace(' ', '_')}",
+            "why_reasons": [f"Required by your target role: {tgt['role']}", "Recent mock interview showed weakness in this area", "High-impact preparation area to raise interview readiness"],
+            "focus_skill": top_gap,
+            "confidence": 0.89
+        }
+
+    # Weakness from recent practice
+    if top_gap in prac["weak_topics"]:
+        return {
+            "title": f"Improve {top_gap}",
+            "description": f"Your recent practice drill showed conceptual gaps in {top_gap}. Review edge cases and try another problem.",
+            "action_label": f"Practice {top_gap} →",
             "route": "/code",
-            "reason": "deepen_sql_joins",
-            "focus_skill": "SQL"
+            "target": "/code",
+            "action": "PRACTICE_SKILL",
+            "topic": top_gap,
+            "priority": top_gap,
+            "reason": f"practice_drill_{top_gap.lower().replace(' ', '_')}",
+            "why_reasons": [f"Recent practice drill in {top_gap} scored below benchmark", f"Core requirement for {tgt['role']}", "Strengthens coding accuracy and algorithmic depth"],
+            "focus_skill": top_gap,
+            "confidence": 0.86
         }
 
-    if "aws" in gap_lower or "cloud" in gap_lower:
+    # Default to practicing next missing gap
+    if gaps["missing"]:
+        next_gap = gaps["missing"][0]
         return {
-            "title": "Improve AWS fundamentals",
-            "description": "Sharpen architecture knowledge on IAM policies, ECS container orchestration, and VPC networking for upcoming rounds.",
-            "action_label": "Practice AWS concepts →",
-            "route": "/interview",
-            "reason": "deepen_aws",
-            "focus_skill": top_gap
-        }
-
-    # Default to company interview track or mock interview
-    if target.target_company:
-        return {
-            "title": f"Explore {target.target_company} interview playbook",
-            "description": f"Review specific round structures, evaluation criteria, and known problem patterns for {target.target_company}.",
-            "action_label": "Explore company track →",
-            "route": "/companies",
-            "reason": "company_prep",
-            "focus_skill": None
+            "title": f"Practice {next_gap}",
+            "description": f"Targeted technical practice for {next_gap} based on your preparation plan for {tgt['role']}.",
+            "action_label": f"Start {next_gap} practice →",
+            "route": "/code",
+            "target": "/code",
+            "action": "PRACTICE_SKILL",
+            "topic": next_gap,
+            "priority": next_gap,
+            "reason": f"next_gap_{next_gap.lower()}",
+            "why_reasons": [f"Pending skill gap for {tgt['role']}", "Next milestone on your roadmap", "Validates core domain knowledge"],
+            "focus_skill": next_gap,
+            "confidence": 0.85
         }
 
     return {
-        "title": "Try another mock interview",
-        "description": "Practice high-yield technical and behavioral questions under realistic time constraints.",
-        "action_label": "Practice again →",
+        "title": "Take a mock interview",
+        "description": f"Your core technical preparation for {tgt['role']} is well underway. Validate your readiness in an adaptive mock interview.",
+        "action_label": "Start mock interview →",
         "route": "/interview",
-        "reason": "continuous_practice",
-        "focus_skill": top_gap
+        "target": "/interview",
+        "action": "TAKE_MOCK_INTERVIEW",
+        "topic": tgt["role"],
+        "priority": tgt["role"],
+        "reason": "mock_interview_validation",
+        "why_reasons": [f"Simulates real hiring rounds for {tgt['role']}", "Tests communication and problem-solving under pressure", "Provides diagnostic score and actionable feedback"],
+        "focus_skill": None,
+        "confidence": 0.90
     }
 
 
@@ -456,6 +514,54 @@ def tool_complete_interview(user_id: int, session_id: int, **kwargs) -> Dict[str
     return complete_adaptive_interview(user_id=user_id, session_id=session_id)
 
 
+# ---------------------------------------------------------------------------
+# Tool 16: get_candidate_context
+# ---------------------------------------------------------------------------
+def tool_get_candidate_context(user_id: int, **kwargs) -> Dict[str, Any]:
+    """Retrieve the unified canonical candidate state for the continuous AI Coach."""
+    from services.candidate_context_service import build_canonical_candidate_state
+    return build_canonical_candidate_state(user_id=user_id)
+
+
+# ---------------------------------------------------------------------------
+# Tool 17: record_practice_result
+# ---------------------------------------------------------------------------
+def tool_record_practice_result(
+    user_id: int,
+    topic: str,
+    score: float,
+    problem_name: Optional[str] = None,
+    practice_type: str = "coding",
+    mistakes: Optional[List[str]] = None,
+    concepts_missed: Optional[List[str]] = None,
+    feedback: Optional[Dict[str, Any]] = None,
+    **kwargs
+) -> Dict[str, Any]:
+    """Record practice performance, adapt roadmap, and update candidate gaps."""
+    from services.candidate_context_service import record_practice_performance
+    activity = record_practice_performance(
+        user_id=user_id,
+        topic=topic,
+        score=score,
+        problem_name=problem_name,
+        practice_type=practice_type,
+        mistakes=mistakes,
+        concepts_missed=concepts_missed,
+        feedback=feedback
+    )
+    return {"success": True, "activity": activity.to_dict()}
+
+
+# ---------------------------------------------------------------------------
+# Tool 18: get_coaching_timeline
+# ---------------------------------------------------------------------------
+def tool_get_coaching_timeline(user_id: int, limit: int = 6, **kwargs) -> Dict[str, Any]:
+    """Retrieve chronological coaching preparation history."""
+    from services.candidate_context_service import get_coaching_timeline
+    events = get_coaching_timeline(user_id=user_id, limit=limit)
+    return {"success": True, "timeline": events}
+
+
 # Map of tool names to implementations
 AGENT_TOOLS = {
     "get_candidate_profile": tool_get_candidate_profile,
@@ -473,6 +579,9 @@ AGENT_TOOLS = {
     "get_previous_interview_turns": tool_get_previous_interview_turns,
     "evaluate_interview_answer": tool_evaluate_interview_answer,
     "complete_interview": tool_complete_interview,
+    "get_candidate_context": tool_get_candidate_context,
+    "record_practice_result": tool_record_practice_result,
+    "get_coaching_timeline": tool_get_coaching_timeline,
 }
 
 # Explicit JSON schema definitions for model tool-calling
@@ -645,6 +754,43 @@ AGENT_TOOLS_SCHEMA = [
                     "session_id": {"type": "integer"}
                 },
                 "required": ["session_id"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_candidate_context",
+            "description": "Retrieve full canonical candidate state including skill gaps, roadmap, practice, and interview history.",
+            "parameters": {"type": "object", "properties": {}}
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "record_practice_result",
+            "description": "Record coding or practice performance, update skill gaps, and adapt roadmap priorities.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topic": {"type": "string", "description": "Practiced skill or topic"},
+                    "score": {"type": "number", "description": "Score achieved (0-100)"},
+                    "problem_name": {"type": "string", "description": "Name of the problem or drill"}
+                },
+                "required": ["topic", "score"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_coaching_timeline",
+            "description": "Retrieve chronological coaching preparation history (practice, interviews, roadmap updates).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Maximum events to retrieve"}
+                }
             }
         }
     }

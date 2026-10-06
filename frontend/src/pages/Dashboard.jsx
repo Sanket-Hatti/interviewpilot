@@ -44,6 +44,8 @@ export default function Dashboard() {
   const [recentInterviews, setRecentInterviews] = useState([]);
   const [activeJobTarget, setActiveJobTarget] = useState(null);
   const [agentRecommendation, setAgentRecommendation] = useState(null);
+  const [coachingTimeline, setCoachingTimeline] = useState([]);
+  const [progressSignals, setProgressSignals] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -165,19 +167,37 @@ export default function Dashboard() {
           }
         }
 
-        // Fetch Agent dynamic recommendation (safe background enhancement)
+        // Fetch Agent dynamic recommendation, coaching timeline, and verified signals
         try {
-          const agentRes = await api.get("/api/agent/next-action");
-          if (agentRes.data?.success && agentRes.data?.recommendation) {
-            const rec = agentRes.data.recommendation;
+          const [agentRes, timelineRes, signalsRes] = await Promise.allSettled([
+            api.get("/api/agent/next-action"),
+            api.get("/api/agent/timeline"),
+            api.get("/api/agent/signals")
+          ]);
+
+          if (agentRes.status === "fulfilled" && agentRes.value.data?.recommendation) {
+            const rec = agentRes.value.data.recommendation;
             setAgentRecommendation({
               title: rec.title,
               description: rec.description,
               actionLabel: rec.action_label || rec.actionLabel,
-              route: rec.route,
+              route: rec.route || rec.target,
+              target: rec.target || rec.route,
               reason: rec.reason,
+              topic: rec.topic,
+              priority: rec.priority,
+              whyReasons: rec.why_reasons || [],
+              confidence: rec.confidence,
               source: rec.source || "agent"
             });
+          }
+
+          if (timelineRes.status === "fulfilled" && timelineRes.value.data?.timeline) {
+            setCoachingTimeline(timelineRes.value.data.timeline);
+          }
+
+          if (signalsRes.status === "fulfilled" && signalsRes.value.data?.signals) {
+            setProgressSignals(signalsRes.value.data.signals);
           }
         } catch (_) {
           // Graceful fallback to deterministic recommendation
@@ -383,11 +403,13 @@ export default function Dashboard() {
         </div>
 
         {/* ── 3. AI RECOMMENDATION: YOUR NEXT BEST ACTION ── */}
-        <div className="rounded-xl bg-zinc-900/40 border border-indigo-500/30 p-4 sm:p-5 space-y-2.5 relative overflow-hidden">
+        <div className="rounded-xl bg-zinc-900/40 border border-indigo-500/30 p-4 sm:p-5 space-y-3 relative overflow-hidden">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5 text-indigo-400 text-xs font-semibold tracking-wide">
               <span>✦</span>
               <span>Recommended for you</span>
+              <span className="text-zinc-600">·</span>
+              <span className="text-zinc-400 font-normal">AI Coach</span>
             </div>
             {nextBestAction.source === "agent" && (
               <span className="text-[10px] uppercase font-bold tracking-wider text-purple-400 bg-purple-950/60 border border-purple-500/30 px-2 py-0.5 rounded-full">
@@ -396,8 +418,8 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div className="space-y-1.5">
               <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
                 {nextBestAction.title}
               </h2>
@@ -405,14 +427,31 @@ export default function Dashboard() {
               <p className="text-xs sm:text-sm text-zinc-400 max-w-2xl leading-relaxed">
                 {nextBestAction.description}
               </p>
+
+              {/* "Why this?" Concise Explanations */}
+              {nextBestAction.whyReasons && nextBestAction.whyReasons.length > 0 && (
+                <div className="pt-2 border-t border-zinc-800/50 mt-2">
+                  <div className="text-[11px] font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
+                    Why this?
+                  </div>
+                  <ul className="space-y-1 text-xs text-zinc-400">
+                    {nextBestAction.whyReasons.map((reason, idx) => (
+                      <li key={idx} className="flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />
+                        <span>{reason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="shrink-0 pt-0.5 sm:pt-0">
               <Link
-                to={nextBestAction.route || nextBestAction.to}
+                to={nextBestAction.route || nextBestAction.to || nextBestAction.target || "/interview"}
                 className="btn-primary inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold px-4 py-2"
               >
-                <span>{nextBestAction.actionLabel || nextBestAction.cta}</span>
+                <span>{nextBestAction.actionLabel || nextBestAction.cta || "Practice Now →"}</span>
               </Link>
             </div>
           </div>
@@ -604,13 +643,18 @@ export default function Dashboard() {
 
         </div>
 
-        {/* ── 6. COMPACT RECENT ACTIVITY ── */}
+        {/* ── 6. COMPACT RECENT ACTIVITY / COACHING HISTORY ── */}
         <div className="rounded-xl bg-zinc-900/40 border border-zinc-800/70 p-4 sm:p-4.5 space-y-2.5">
           <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2">
-            <h3 className="text-xs sm:text-sm font-semibold text-white">
-              Recent activity
-            </h3>
-            {recentActivity.length > 0 && (
+            <div className="flex items-center gap-2">
+              <h3 className="text-xs sm:text-sm font-semibold text-white">
+                Coaching History
+              </h3>
+              <span className="text-[11px] text-zinc-500 font-normal">
+                Preparation timeline
+              </span>
+            </div>
+            {(coachingTimeline.length > 0 || recentActivity.length > 0) && (
               <Link
                 to="/interview"
                 className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
@@ -620,27 +664,40 @@ export default function Dashboard() {
             )}
           </div>
 
-          {recentActivity.length > 0 ? (
+          {(coachingTimeline.length > 0 ? coachingTimeline : recentActivity).length > 0 ? (
             <div className="divide-y divide-zinc-800/50">
-              {recentActivity.map((item) => (
+              {(coachingTimeline.length > 0 ? coachingTimeline : recentActivity).map((item) => (
                 <Link
                   key={item.id}
-                  to={item.to}
+                  to={item.route || item.to || "/interview"}
                   className="flex items-center justify-between py-2 hover:px-1.5 rounded-lg hover:bg-zinc-800/30 transition-all group"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
-                    <div className="text-xs sm:text-sm font-medium text-white group-hover:text-indigo-300 transition-colors">
-                      {item.title}
+                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      item.status === "warning" ? "bg-amber-400" : item.status === "info" ? "bg-blue-400" : "bg-indigo-500"
+                    }`} />
+                    <div>
+                      <div className="text-xs sm:text-sm font-medium text-white group-hover:text-indigo-300 transition-colors">
+                        {item.title}
+                      </div>
+                      {item.detail && (
+                        <div className="text-[11px] text-zinc-400">
+                          {item.detail}
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-[11px] sm:text-xs font-semibold px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-300 border border-zinc-700/60">
+                    <span className={`text-[11px] sm:text-xs font-semibold px-2 py-0.5 rounded border ${
+                      item.status === "warning"
+                        ? "bg-amber-950/40 text-amber-300 border-amber-500/30"
+                        : "bg-zinc-800/80 text-zinc-300 border-zinc-700/60"
+                    }`}>
                       {item.badge}
                     </span>
                     <span className="text-xs text-zinc-500 hidden sm:inline">
-                      {formatRelativeTime(item.date)}
+                      {item.relative_time || formatRelativeTime(item.date || item.timestamp)}
                     </span>
                   </div>
                 </Link>

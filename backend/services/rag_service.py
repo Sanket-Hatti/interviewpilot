@@ -380,3 +380,98 @@ def index_interview_feedback_document(
         db.session.commit()
 
     return doc
+
+
+def index_practice_feedback_document(
+    user_id: int,
+    practice_id: int,
+    topic: str,
+    problem_name: Optional[str] = None,
+    score: float = 0.0,
+    feedback: Optional[Dict[str, Any]] = None,
+    mistakes: Optional[list] = None,
+    concepts_missed: Optional[list] = None
+) -> Document:
+    """Indexes practice session feedback, mistakes, and missed concepts into RAG."""
+    fb = feedback or {}
+    source_key = f"practice_{practice_id}"
+    doc = Document.query.filter_by(
+        user_id=user_id,
+        document_type="practice_feedback",
+        source_id=source_key
+    ).first()
+
+    title_desc = f"{topic} ({problem_name})" if problem_name else topic
+    if not doc:
+        doc = Document(
+            user_id=user_id,
+            document_type="practice_feedback",
+            source_id=source_key,
+            title=f"Practice Feedback - {title_desc} - Score: {round(score, 1)}%",
+            content=f"Topic: {topic}\nProblem: {problem_name}\nScore: {score}%\nMistakes: {mistakes}\nConcepts Missed: {concepts_missed}",
+            metadata_json={"practice_id": practice_id, "topic": topic, "score": score, "problem_name": problem_name}
+        )
+        db.session.add(doc)
+        db.session.flush()
+    else:
+        doc.title = f"Practice Feedback - {title_desc} - Score: {round(score, 1)}%"
+        DocumentChunk.query.filter_by(document_id=doc.id).delete()
+        db.session.flush()
+
+    chunks_to_create = []
+
+    # 1. Summary Chunk
+    summary_text = fb.get("review_summary") or fb.get("summary") or f"Candidate scored {round(score, 1)}% on {topic} practice ({problem_name or 'Drill'})."
+    chunks_to_create.append({
+        "section": "practice_summary",
+        "content": f"Practice Drill Performance Summary for {topic} - {problem_name or 'General Drill'} (Score: {round(score, 1)}%):\n{summary_text}",
+        "metadata": {"topic": topic, "score": score}
+    })
+
+    # 2. Mistakes
+    all_mistakes = (mistakes or []) + (fb.get("mistakes") or [])
+    if all_mistakes:
+        m_lines = "\n".join(f"- {m}" for m in all_mistakes)
+        chunks_to_create.append({
+            "section": "mistakes",
+            "content": f"Identified Mistakes and Edge Case Failures in {topic} ({problem_name or 'Drill'}):\n{m_lines}",
+            "metadata": {"type": "mistakes", "topic": topic}
+        })
+
+    # 3. Concepts Missed
+    all_missed = (concepts_missed or []) + (fb.get("concepts_missed") or []) + (fb.get("areas_to_improve") or [])
+    if all_missed:
+        c_lines = "\n".join(f"- {c}" for c in all_missed)
+        chunks_to_create.append({
+            "section": "concepts_missed",
+            "content": f"Concepts Missed and Foundational Gaps in {topic}:\n{c_lines}",
+            "metadata": {"type": "concepts_missed", "topic": topic}
+        })
+
+    # 4. Strengths
+    all_strengths = fb.get("strengths") or []
+    if all_strengths:
+        s_lines = "\n".join(f"- {s}" for s in all_strengths)
+        chunks_to_create.append({
+            "section": "strengths",
+            "content": f"Demonstrated Strengths in {topic} Practice:\n{s_lines}",
+            "metadata": {"type": "strengths", "topic": topic}
+        })
+
+    if chunks_to_create:
+        texts = [c["content"] for c in chunks_to_create]
+        embeddings = generate_embeddings(texts)
+        for i, c in enumerate(chunks_to_create):
+            chunk = DocumentChunk(
+                document_id=doc.id,
+                user_id=user_id,
+                chunk_index=i,
+                section=c["section"],
+                content=c["content"],
+                embedding=embeddings[i] if i < len(embeddings) else None,
+                metadata_json=c["metadata"]
+            )
+            db.session.add(chunk)
+        db.session.commit()
+
+    return doc
