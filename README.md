@@ -4,6 +4,13 @@ InterviewPilot is an AI-powered technical career preparation platform that bridg
 
 ---
 
+## Live Demo
+
+- **Frontend Application**: [https://interviewpilot-one.vercel.app](https://interviewpilot-one.vercel.app)
+- **Backend API**: [https://interviewpilot-1m0t.onrender.com](https://interviewpilot-1m0t.onrender.com)
+
+---
+
 ## Features
 
 - **Resume & ATS Diagnostics**: Parses PDF resumes via PyMuPDF, extracts skill taxonomies, and evaluates format, density, and keyword alignment against ATS benchmarks.
