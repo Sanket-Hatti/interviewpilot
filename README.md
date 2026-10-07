@@ -1,275 +1,157 @@
-# InterviewPilot — AI Placement Coach
+# InterviewPilot
 
-> An AI-powered full-stack platform that helps students analyze resumes, match roles, generate personalized learning roadmaps, and practice mock interviews.
-
-![Status](https://img.shields.io/badge/Status-Live-brightgreen) ![License](https://img.shields.io/badge/License-MIT-blue) ![Python](https://img.shields.io/badge/Python-3.14-blue) ![React](https://img.shields.io/badge/React-18-61dafb)
+InterviewPilot is an AI-powered technical career preparation platform that bridges the gap between candidate resumes and target engineering roles. It analyzes skill gaps against job descriptions, builds personalized multi-week learning roadmaps, conducts turn-by-turn adaptive mock interviews, and delivers continuous coaching using retrieval-augmented generation (RAG) and autonomous agent workflows.
 
 ---
 
-## 🚀 Live Demo
+## Features
 
-| Service  | URL |
-|----------|-----|
-| Frontend | https://interviewpilot-one.vercel.app |
-| Backend  | https://interviewpilot-1m0t.onrender.com |
-
----
-
-## ✨ Features
-
-### 📄 Resume Analyzer
-- Upload PDF resume
-- Extracts skills, experience, education, and projects using **PyMuPDF + spaCy**
-- Generates a resume score (0–100) with strengths and weaknesses
-- AI-powered bullet point improver using **Groq (Llama 3)**
-
-### 🎯 Role Matching
-- Match your skill set against 9 tech roles
-- See match percentage, matched skills, and missing skills
-- Roles: Software Engineer, Backend Developer, Frontend Developer, Full Stack Developer, Data Analyst, Data Scientist, ML Engineer, DevOps Engineer, Cloud Engineer
-
-### 🗺️ AI Roadmap Generator
-- Select target role + skills to learn + study hours/week
-- Generates a 4, 8, or 12-week personalized study plan
-- Each week includes topics, resources, practice tasks, and a mini project
-- Powered by **Groq AI (Llama 3.3 70B)**
-
-### 🎤 Mock Interview
-- Select role and difficulty (Easy / Medium / Hard)
-- AI generates 11 questions: 5 Technical + 3 Behavioral + 3 HR
-- Submit answers and get scored on Technical Accuracy, Communication, and Completeness
-- Detailed feedback and improvem## 🛠️ Tech Stack
-
-| Layer      | Technology                                          |
-|------------|-----------------------------------------------------|
-| Frontend   | React 18, Tailwind CSS, Framer Motion, Recharts     |
-| Backend    | Flask, Flask-SQLAlchemy, Flask-JWT-Extended, Gunicorn |
-| AI         | Groq API (High-speed Llama models)                  |
-| NLP        | PyMuPDF                                             |
-| Database   | PostgreSQL (Neon) or SQLite (Local)                 |
-| Auth       | JWT (Flask-JWT-Extended) + bcrypt                   |
-| Deploy     | Vercel (frontend) + Render / Railway (backend)      |
+- **Resume & ATS Diagnostics**: Parses PDF resumes via PyMuPDF, extracts skill taxonomies, and evaluates format, density, and keyword alignment against ATS benchmarks.
+- **Job Matching & Skill Gap Analysis**: Compares candidate competencies against target job descriptions to identify missing technical requirements.
+- **Personalized Roadmaps**: Generates dynamic week-by-week study milestones, curated resources, and practical projects calibrated to candidate study hours.
+- **RAG-Powered Contextual Retrieval**: Semantic vector search over candidate resumes, job descriptions, and past feedback to ground interview questions and eliminate hallucinations.
+- **Agentic AI Coaching**: Tool-calling decision engine that evaluates candidate state, tracks momentum, and recommends the next best preparation action.
+- **Adaptive Mock Interviews**: Turn-by-turn conversational technical and behavioral interviews with dynamic difficulty adjustment and targeted follow-up questions.
+- **Algorithmic Code Studio**: Browser-based coding IDE with automated Big-O time/space complexity analysis and edge-case verification.
+- **Progress Tracking & Analytics**: Chronological coaching timelines, placement readiness scoring, and practice history persistence.
 
 ---
 
-## 📁 Project Structure
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | React 18, Vite 6, Tailwind CSS, Lucide React, Framer Motion |
+| **Backend** | Python 3.11+, Flask 3.0, Flask-SQLAlchemy, Flask-JWT-Extended, Flask-Limiter |
+| **Database** | PostgreSQL (Neon / Supabase) with `pgvector`; SQLite local fallback |
+| **AI / LLM** | Groq Cloud SDK (`qwen/qwen3.8-27b`, `openai/gpt-oss-120b`) |
+| **RAG / Embeddings** | FastEmbed (`BAAI/bge-small-en-v1.5`), Dense Vector Search, PyMuPDF |
+| **Authentication** | JWT Bearer Tokens, Passlib / Bcrypt password hashing |
+| **Deployment** | Vercel (Frontend), Render / Gunicorn (Backend) |
+
+---
+
+## Architecture
+
+```mermaid
+graph TD
+    User([Candidate]) --> Frontend[React SPA / Vite]
+    Frontend -->|REST API + JWT| API[Flask Gateway]
+    API --> Services[Application Services<br/>Resume · Roles · Roadmap · Code · Practice]
+    Services --> AgentRAG[AI Agent & RAG Engine]
+    AgentRAG --> VectorDB[(PostgreSQL + pgvector)]
+    Services --> RelDB[(PostgreSQL Relational DB)]
+    AgentRAG --> LLM[Groq Inference API]
+```
+
+---
+
+## Project Structure
 
 ```
 interviewpilot/
 ├── backend/
-│   ├── app.py                  # Flask application factory & blueprints
-│   ├── wsgi.py                 # Gunicorn WSGI production entry point
-│   ├── config.py               # Application configuration & environments
-│   ├── models/                 # Flask-SQLAlchemy db.Model definitions
-│   │   ├── user.py
-│   │   ├── resume.py
-│   │   ├── role.py
-│   │   ├── roadmap.py
-│   │   ├── interview.py
-│   │   ├── dsa.py
-│   │   ├── company.py
-│   │   └── chat.py
-│   ├── routes/                 # Flask Blueprints
-│   │   ├── auth.py             # Register / Login / JWT / Me
-│   │   ├── resume.py           # PDF upload + analysis
-│   │   ├── roles.py            # Role matching
-│   │   ├── roadmap.py          # AI roadmap generation
-│   │   ├── interview.py        # Mock interview + SSE streaming
-│   │   ├── companies.py        # Company interview tracks
-│   │   └── code.py             # Code evaluation & feedback
-│   ├── services/
-│   │   ├── ai_service.py       # Groq AI streaming & structured responses
-│   │   ├── resume_service.py   # PDF parsing + scoring
-│   │   └── role_service.py     # Skill matching algorithm
-│   ├── database/
-│   │   ├── db.py               # Flask-SQLAlchemy db instance
-│   │   └── seed.py             # Seed roles and companies
-│   ├── utils/
-│   │   └── file_utils.py       # Upload validation & PDF verification
-│   ├── Procfile                # Gunicorn process definition
-│   └── requirements.txt
+│   ├── app.py                  # Flask app factory and blueprint registration
+│   ├── config.py               # Database and environment configuration
+│   ├── wsgi.py                 # Production WSGI entrypoint
+│   ├── requirements.txt        # Backend dependencies
+│   ├── database/               # DB initialization and role/company seed data
+│   ├── models/                 # SQLAlchemy models (User, Candidate, Interview, Document)
+│   ├── routes/                 # Flask REST API blueprints (auth, resume, roles, interview, etc.)
+│   └── services/               # Core AI logic (agent, RAG, retrieval, adaptive interview)
 └── frontend/
-    ├── src/
-    │   ├── pages/
-    │   │   ├── Login.jsx
-    │   │   ├── Register.jsx
-    │   │   ├── Dashboard.jsx
-    │   │   ├── ResumeAnalyzer.jsx
-    │   │   ├── RoleMatch.jsx
-    │   │   ├── Roadmap.jsx
-    │   │   ├── MockInterview.jsx
-    │   │   ├── CompanyPrep.jsx
-    │   │   └── CodePlayground.jsx
-    │   ├── components/
-    │   │   └── Navbar.jsx
-    │   ├── context/
-    │   │   └── AuthContext.jsx
-    │   └── utils/
-    │       └── api.js
-    └── package.json
-``` │   │   ├── Login.jsx
-    │   │   ├── Register.jsx
-    │   │   ├── Dashboard.jsx
-    │   │   ├── ResumeAnalyzer.jsx
-    │   │   ├── RoleMatch.jsx
-    │   │   ├── Roadmap.jsx
-    │   │   └── MockInterview.jsx
-    │   ├── components/
-    │   │   └── Navbar.jsx
-    │   ├── context/
-    │   │   └── AuthContext.jsx
-    │   └── utils/
-    │       └── api.js
-    └── package.json
+    ├── index.html              # HTML entrypoint
+    ├── vite.config.js          # Vite config & API proxy
+    ├── package.json            # Frontend dependencies
+    └── src/
+        ├── App.jsx             # Router and layout configuration
+        ├── components/         # Reusable UI (Navbar, CommandPalette, ReadinessRadar)
+        ├── context/            # AuthContext for session management
+        ├── pages/              # Core pages (Dashboard, Resume, Roadmap, MockInterview, Code)
+        └── utils/              # Axios API client with JWT interceptor
 ```
 
 ---
 
-## ⚙️ Local Setup
+## AI Architecture
 
-### Prerequisites
-- Python 3.10+
-- Node.js 18+
-- PostgreSQL (or Neon free tier) / SQLite
+- **RAG Grounding**: Semantically indexes resumes, job descriptions, and past interview feedback into dense vector embeddings to ground questions and prevent hallucinations.
+- **Canonical Candidate State**: Maintains a unified, single source of truth containing verified skills, active job targets, identified skill gaps, and practice scores.
+- **Tool-Calling Agent**: Autonomous agent leverages schema-validated tools to inspect profiles, calculate gaps, and determine coaching recommendations.
+- **Next-Best-Action Engine**: Evaluates candidate readiness velocity and bottlenecks to prescribe the most impactful next task on the dashboard.
+- **Adaptive Interviewing**: Generates one question per turn, dynamically adjusting difficulty (Easy/Medium/Hard) and probing weak answers with follow-ups.
+- **Continuous Feedback Loop**: Turn evaluations, code reviews, and practice results feed back into vector memory and update candidate readiness signals.
+- **Deterministic Fallbacks**: Structured rule-based fallbacks guarantee seamless operation if LLM or embedding providers experience transient latency.
 
-### Backend
+---
+
+## API
+
+| Area | Base Path | Purpose |
+|---|---|---|
+| **Authentication** | `/api/auth` | User registration, login, profile management, and onboarding |
+| **Resume** | `/api/resume` | PDF resume parsing, ATS scoring, and bullet point enhancement |
+| **Roles & Jobs** | `/api/roles` | Role taxonomy matching, job description ingestion, and skill gaps |
+| **Roadmap** | `/api/roadmap` | Personalized multi-week learning curriculum generation |
+| **Practice & Code** | `/api/code` | Algorithmic code review, Big-O complexity analysis, and practice logging |
+| **Company Tracks** | `/api/companies` | Target company interview patterns, rounds, and prep strategies |
+| **Semantic RAG** | `/api/rag` | Document vector chunking, indexing, and contextual search |
+| **AI Coach** | `/api/agent` | Candidate state, next-best-action generation, and progress signals |
+| **Adaptive Interview** | `/api/interview` | Turn-by-turn adaptive mock interviews and rubric evaluations |
+
+---
+
+## Local Development
+
+### 1. Backend Setup
 
 ```bash
 cd backend
-
-# Create virtual environment
 python -m venv venv
-venv\Scripts\activate          # Windows
-# source venv/bin/activate     # Mac/Linux
 
-# Install dependencies
+# Windows (PowerShell):
+.\venv\Scripts\activate
+# macOS / Linux:
+source venv/bin/activate
+
 pip install -r requirements.txt
-
-# Setup environment
-copy .env.example .env         # Windows
-# cp .env.example .env         # Mac/Linux
-```
-
-Edit `.env`:
-```env
-DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
-JWT_SECRET_KEY=your-secret-key-here
-GROQ_API_KEY=your-groq-api-key-here
-CORS_ORIGINS=http://localhost:5173
-```
-
-```bash
-# Seed database (first time only)
 python database/seed.py
 
-# Start Flask backend
-python app.py
+# Run development server (Port 5000)
+flask run --host 127.0.0.1 --port 5000
 ```
 
-Backend runs at: `http://localhost:5000`
-Health check: `http://localhost:5000/api/health`
-
-### Frontend
+### 2. Frontend Setup
 
 ```bash
 cd frontend
 npm install
+
+# Run development server (Port 5173)
 npm run dev
 ```
 
-Frontend runs at: `http://localhost:5173`
-
 ---
 
-## 🔌 API Endpoints
+## Environment Variables
 
-### Auth
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/auth/register` | Create account | No |
-| POST | `/api/auth/login` | Login | No |
-| GET | `/api/auth/me` | Get current user | Yes |
-| POST | `/api/auth/logout` | Logout | Yes |
+Create a `backend/.env` file with the following variables:
 
-### Resume
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/resume/analyze` | Upload + analyze PDF | Yes |
-| POST | `/api/resume/improve` | Improve bullet point | Yes |
-| GET | `/api/resume/history` | Past analyses | Yes |
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/interviewpilot
+# Local SQLite fallback: sqlite:///./interviewpilot.db
 
-### Roles
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/roles/` | List all roles | Yes |
-| POST | `/api/roles/match` | Match skills to roles | Yes |
-| POST | `/api/roles/match/<id>` | Match specific role | Yes |
+# Authentication
+JWT_SECRET_KEY=your_jwt_secret_key_here
+FLASK_ENV=development
 
-### Roadmap
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/roadmap/generate` | Generate AI roadmap | Yes |
-| GET | `/api/roadmap/history` | Past roadmaps | Yes |
-| GET | `/api/roadmap/<id>` | Retrieve specific roadmap | Yes |
+# LLM & Embeddings (Groq)
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_MODEL=qwen/qwen3.8-27b
+EMBEDDING_PROVIDER=fastembed
+EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
 
-### Interview
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/interview/generate` | Generate questions (supports company) | Yes |
-| POST | `/api/interview/submit` | Submit + get feedback | Yes |
-| POST | `/api/interview/chat-stream` | Real-time AI streaming (SSE) | Yes |
-| GET | `/api/interview/history` | Past interviews | Yes |
-
-### Company Preparation
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/companies/` | List company interview prep tracks | Yes |
-| GET | `/api/companies/<id>` | Retrieve specific company track | Yes |
-
-### Code Evaluation
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/code/review` | AI Code analysis & complexity evaluation | Yes |
-
----
-
-## 🚢 Deployment
-
-### Frontend → Vercel
-1. Connect GitHub repo to Vercel
-2. Set root directory to `frontend`
-3. Framework: Vite — Build: `npm run build` — Output: `dist`
-4. Add env var: `VITE_API_URL=https://your-render-url.onrender.com`
-
-### Backend → Render / Railway
-1. Connect GitHub repo to Render / Railway
-2. Root directory: `backend`
-3. Build command: `pip install -r requirements.txt`
-4. Start command: `gunicorn wsgi:app`
-5. Add environment variables (DATABASE_URL, JWT_SECRET_KEY, GROQ_API_KEY, CORS_ORIGINS)
-
----
-
-## 🔑 Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string (Neon) |
-| `JWT_SECRET_KEY` | Secret key for JWT tokens |
-| `GROQ_API_KEY` | Groq API key from console.groq.com |
-| `CORS_ORIGINS` | Frontend URL (comma-separated) |
-| `FLASK_ENV` | `development` or `production` |
-
----
-
-## 👨‍💻 Author
-
-**Sanket Hatti**
-- GitHub: [@Sanket-Hatti](https://github.com/Sanket-Hatti)
-- Project: [InterviewPilot](https://github.com/Sanket-Hatti/interviewpilot)
-
----
-
-## 📄 License
-
-MIT License — see [LICENSE](LICENSE) for details.
+# CORS Origins
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
