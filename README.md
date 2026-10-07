@@ -7,7 +7,7 @@ InterviewPilot is an AI-powered technical career preparation platform that bridg
 ## Live Demo
 
 - **Frontend Application**: [https://interviewpilot-one.vercel.app](https://interviewpilot-one.vercel.app)
-- **Backend API**: [https://interviewpilot-1m0t.onrender.com](https://interviewpilot-1m0t.onrender.com)
+- **Backend API**: [https://interviewpilot-production-0ff9.up.railway.app](https://interviewpilot-production-0ff9.up.railway.app)
 
 ---
 
@@ -34,7 +34,7 @@ InterviewPilot is an AI-powered technical career preparation platform that bridg
 | **AI / LLM** | Groq Cloud SDK (`qwen/qwen3.8-27b`, `openai/gpt-oss-120b`) |
 | **RAG / Embeddings** | FastEmbed (`BAAI/bge-small-en-v1.5`), Dense Vector Search, PyMuPDF |
 | **Authentication** | JWT Bearer Tokens, Passlib / Bcrypt password hashing |
-| **Deployment** | Vercel (Frontend), Render / Gunicorn (Backend) |
+| **Deployment** | Vercel (Frontend), Railway / Gunicorn (Backend) |
 
 ---
 
